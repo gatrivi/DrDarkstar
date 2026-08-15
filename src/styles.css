@@ -1,0 +1,20 @@
+:root {
+  color-scheme: dark;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: #03040a;
+  color: #d7e8ff;
+}
+
+* { box-sizing: border-box; }
+html, body, #app { width: 100%; height: 100%; margin: 0; overflow: hidden; }
+body { background: radial-gradient(circle at 50% 35%, #11172a 0, #03040a 55%, #000 100%); }
+#app { position: relative; }
+canvas { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.hud, .help { position: absolute; left: 16px; right: 16px; pointer-events: none; text-shadow: 0 1px 8px #000; }
+.hud { top: max(14px, env(safe-area-inset-top)); display: flex; justify-content: space-between; gap: 12px; font-size: 12px; letter-spacing: .08em; }
+.brand { font-weight: 800; letter-spacing: .18em; }
+.help { bottom: max(14px, env(safe-area-inset-bottom)); display: flex; gap: 14px; flex-wrap: wrap; opacity: .58; font-size: 11px; }
+@media (max-width: 620px) {
+  .hud { flex-direction: column; }
+  .help { gap: 8px; }
+}
