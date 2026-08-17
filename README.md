@@ -1,15 +1,32 @@
 # Dr Darkstar
 
-A small browser game / creative-coding playground rebuilt around two independent pieces:
+Pixel-art game experiment based on a simple idea:
 
-1. a tiny vanilla-JS game core (input, loop, asset loading, scene), and
-2. a pixel-rain renderer that can process the game scene without owning game logic.
+> rain particles collide with the **visible pixels of the current animation frame**.
 
-No frameworks. No runtime dependencies. The point is to keep it easy to understand, break and remix.
+When the character walks and the spritesheet advances, the collision surface changes with the sprite.
+
+## Core loop
+
+```text
+spritesheet frame
+      ↓
+offscreen canvas
+      ↓
+getImageData() alpha mask
+      ↓
+world → sprite-local coordinates
+      ↓
+rain particle hits solid pixel
+      ↓
+alpha-gradient surface normal
+      ↓
+particle velocity reflects
+```
+
+Only a tiny sprite-sized canvas is sampled. We do **not** scan the whole game canvas every frame. Masks are cached per animation frame.
 
 ## Run
-
-ES modules need HTTP rather than `file://`.
 
 ```bash
 python -m http.server 8080
@@ -19,33 +36,31 @@ Open `http://localhost:8080`.
 
 ## Controls
 
-- WASD / arrows: move
-- R: cycle `hybrid -> rain -> clean`
-- P: pause
+- WASD / arrows — move; movement advances the spritesheet
+- M — show the exact collision pixels
+- R — reset rain
+- P — pause
 
-## Assets
+## Sprite
 
-The game tries to load:
+Put a sprite at:
 
 ```text
 assets/player.png
 ```
 
-If it is missing, a procedural ship is used. Existing DrDarkstar art can be restored progressively without blocking the engine.
+Current prototype assumes one horizontal row of frames and infers square frames from image height. Until the real Dr Darkstar sheet is restored, a deliberately chunky 4-frame procedural character is used so the changing collision silhouette is obvious.
 
-## Structure
+## Files
 
 ```text
-src/engine/GameLoop.js       requestAnimationFrame + clamped delta
-src/engine/Input.js          keyboard state
-src/engine/AssetLoader.js    async images with safe fallback
-src/effects/PixelRain.js     scene post-process / renderer
-src/game/DrDarkstarGame.js   current toy scene and rules
-src/main.js                  composition + resize + modes
+src/game/AnimatedSprite.js    spritesheet animation + cached alpha masks
+src/effects/CollisionRain.js  falling particles + pixel collision/reflection
+src/engine/Input.js           keyboard input
+src/engine/GameLoop.js        delta-time animation loop
+src/main.js                   experiment wiring
 ```
 
-## Design rule
+## Why this structure
 
-Gameplay renders to an offscreen scene canvas. Pixel rain consumes that canvas and renders to the display canvas. Neither layer needs to know the internals of the other.
-
-That separation is the part worth preserving as the project grows.
+Frank's canvas image techniques use `drawImage()` and `getImageData()` to turn image pixels into usable data. Here that same idea is applied dynamically to a game spritesheet: each animation frame becomes collision geometry for another particle system.
