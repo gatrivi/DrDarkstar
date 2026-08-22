@@ -18,7 +18,7 @@ let height = 1;
 let dpr = 1;
 let current = 0;
 let paused = false;
-let showBase = true;
+let showBase = false;
 let colorMode = true;
 let imageRect = { x: 0, y: 0, w: 1, h: 1 };
 let brightness = new Float32Array(1);
@@ -36,6 +36,8 @@ function drawCurrent(target, rect) {
   target.drawImage(sheet, current * CELL_W, 0, CELL_W, CELL_H, rect.x, rect.y, rect.w, rect.h);
 }
 
+let brightnessScale = 1;
+
 function rebuildMap() {
   mapCanvas.width = width;
   mapCanvas.height = height;
@@ -45,12 +47,18 @@ function rebuildMap() {
   const data = mapCtx.getImageData(0, 0, width, height).data;
   colors = data;
   brightness = new Float32Array(width * height);
+  let max = 0;
   for (let i = 0, p = 0; i < data.length; i += 4, p += 1) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-    brightness[p] = Math.sqrt(r * r * 0.299 + g * g * 0.587 + b * b * 0.114) / 100;
+    const v = Math.sqrt(r * r * 0.299 + g * g * 0.587 + b * b * 0.114) / 100;
+    brightness[p] = v;
+    if (v > max) max = v;
   }
+  // Normalize to the image's own dynamic range so dark paintings
+  // reveal as strongly as bright ones.
+  brightnessScale = max > 0.2 ? 2.3 / max : 1;
 }
 
 function makeParticle(anywhere = true) {
@@ -63,14 +71,14 @@ function makeParticle(anywhere = true) {
 }
 
 function rebuildParticles() {
-  const count = Math.max(900, Math.min(3200, Math.floor(width * height / 520)));
+  const count = Math.max(1600, Math.min(5200, Math.floor(width * height / 340)));
   particles = Array.from({ length: count }, () => makeParticle(true));
 }
 
 function resize() {
+  dpr = Math.min(devicePixelRatio || 1, 2);
   width = Math.max(1, innerWidth | 0);
   height = Math.max(1, innerHeight | 0);
-  dpr = Math.min(devicePixelRatio || 1, 2);
   canvas.width = Math.floor(width * dpr);
   canvas.height = Math.floor(height * dpr);
   canvas.style.width = `${width}px`;
@@ -91,8 +99,11 @@ function updateParticles(delta) {
   for (const particle of particles) {
     const x = Math.max(0, Math.min(width - 1, particle.x | 0));
     const y = Math.max(0, Math.min(height - 1, particle.y | 0));
-    const value = brightness[y * width + x] || 0;
-    const movement = Math.max(0.12, (2.5 - value) + particle.velocity);
+    const value = (brightness[y * width + x] || 0) * brightnessScale;
+    // Bright hidden pixels grip the drop: it crawls instead of falls,
+    // smearing into a streak that paints the unseen image.
+    const grip = Math.min(0.92, value * 0.42);
+    const movement = Math.max(0.06, particle.velocity * (1 - grip) + 0.25);
     particle.y += movement * frameScale;
     if (particle.y > height + 4) Object.assign(particle, makeParticle(false));
   }
@@ -102,14 +113,17 @@ function drawParticles() {
   for (const particle of particles) {
     const x = Math.max(0, Math.min(width - 1, particle.x | 0));
     const y = Math.max(0, Math.min(height - 1, particle.y | 0));
-    const value = brightness[y * width + x] || 0;
+    const value = (brightness[y * width + x] || 0) * brightnessScale;
+    const lit = Math.min(1, value / 1.9);
     if (colorMode) {
       const k = (y * width + x) * 4;
-      ctx.fillStyle = `rgba(${colors[k] || 225}, ${colors[k + 1] || 235}, ${colors[k + 2] || 255}, ${0.25 + Math.min(1, value / 2.55) * 0.75})`;
+      ctx.fillStyle = `rgba(${colors[k] || 225}, ${colors[k + 1] || 235}, ${colors[k + 2] || 255}, ${0.16 + lit * 0.84})`;
     } else {
-      ctx.fillStyle = `rgba(235, 242, 255, ${0.22 + Math.min(1, value / 2.55) * 0.78})`;
+      ctx.fillStyle = `rgba(235, 242, 255, ${0.14 + lit * 0.86})`;
     }
-    ctx.fillRect(particle.x, particle.y, particle.size, particle.size * 2.2);
+    const stretch = 2.2 + lit * 3.5;
+    const w = particle.size * (1 + lit * 1.4);
+    ctx.fillRect(particle.x - w / 2, particle.y, w, particle.size * stretch);
   }
 }
 
@@ -131,7 +145,7 @@ const loop = new GameLoop({
     status.textContent = `image ${current + 1}/3 · ${particles.length} particles · ${colorMode ? 'color' : 'white'}`;
   },
   render() {
-    ctx.fillStyle = 'rgba(2, 3, 7, 0.24)';
+    ctx.fillStyle = 'rgba(2, 3, 7, 0.17)';
     ctx.fillRect(0, 0, width, height);
     if (showBase) {
       ctx.save();
