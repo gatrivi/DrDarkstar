@@ -4,6 +4,7 @@ export class Input {
     this.pressed = new Set();
 
     target.addEventListener('keydown', (event) => {
+      if (event.target?.closest?.('input, select, textarea, button')) return;
       if (!this.down.has(event.code)) this.pressed.add(event.code);
       this.down.add(event.code);
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {

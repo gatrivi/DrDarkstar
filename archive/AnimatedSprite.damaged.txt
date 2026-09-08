@@ -17,33 +17,15 @@ function makeFallbackSheet() {
 
   poses.forEach((pose, frame) => {
     const ox = frame * frameWidth;
-    const rect = (color, x, y, w, h) => {
-      ctx.fillStyle = color; ctx.fillRect(ox + x, y, w, h);
-    };
-    // Small astronaut: glass, helmet rim, chest console, belt and articulated boots.
-    rect('#6274a6', 4, 8, 8, 8);
-    rect('#dde7ed', 5, 8, 6, 7);
-    rect('#e6b676', 3 + pose.armL, 9, 2, 6);
-    rect('#82b7c7', 11 + pose.armR, 9, 2, 6);
-    rect('#eaf5ee', 3 + pose.armL, 9, 2, 2);
-    rect('#eaf5ee', 11 + pose.armR, 9, 2, 2);
-    rect('#7285ac', 5 + pose.legL, 16, 2, 5);
-    rect('#b6cbd6', 9 + pose.legR, 16, 2, 5);
-    rect('#f6c578', 4 + pose.legL, 20, 3, 2);
-    rect('#f6c578', 9 + pose.legR, 20, 3, 2);
-    rect('#ecc78b', 4, 2, 8, 6);
-    rect('#fff1c8', 5, 1, 6, 2);
-    rect('#d09261', 5, 7, 6, 2);
-    rect('#183755', 5, 3, 6, 3);
-    rect('#49bcd3', 5, 3, 5, 2);
-    rect('#b3ffff', 5, 3, 2, 1);
-    rect('#ecf7eb', 4, 4, 1, 2);
-    rect('#384768', 6, 10, 4, 3);
-    rect('#69edcc', 6, 10, 1, 1);
-    rect('#ef967a', 8, 10, 1, 1);
-    rect('#abbfc9', 6, 12, 3, 1);
-    rect('#34445e', 5, 15, 6, 1);
-    rect('#ffda88', 7, 15, 2, 1);
+    ctx.fillStyle = '#d7efff';
+    ctx.fillRect(ox + 6, 2, 4, 4);          // head
+    ctx.fillRect(ox + 5, 6, 6, 9);          // torso
+    ctx.fillRect(ox + 3 + pose.armL, 7, 2, 8);
+    ctx.fillRect(ox + 11 + pose.armR, 7, 2, 8);
+    ctx.fillRect(ox + 5 + pose.legL, 15, 2, 7);
+    ctx.fillRect(ox + 9 + pose.legR, 15, 2, 7);
+    ctx.fillStyle = '#6ce7ff';
+    ctx.fillRect(ox + 7, 3, 2, 1);
   });
 
   return { source: canvas, frameWidth, frameHeight, frames };
@@ -53,15 +35,75 @@ export class AnimatedSprite {
   constructor({ input, width, height, scale = 6 }) {
     this.input = input;
     this.x = width * 0.5;
-    this.y = height * 0.53;
+    this.y = height * 0.62;
     this.scale = scale;
     this.speed = 180;
-    this.animate = true;
+    this.auto = true;
     this.runDir = 1;
     this.facing = 1;
+PUT 114*=135:
+  update(delta, bounds) {
+    let dx = Number(this.input.isDown('KeyD', 'ArrowRight')) - Number(this.input.isDown('KeyA', 'ArrowLeft'));
+    let dy = Number(this.input.isDown('KeyS', 'ArrowDown')) - Number(this.input.isDown('KeyW', 'ArrowUp'));
+    const manual = dx !== 0 || dy !== 0;
+
+    // No player input: pace back and forth through the scene so the
+    // collision silhouette keeps changing on its own.
+    if (!manual && this.auto) {
+      dx = this.runDir;
+      dy = 0;
+    }
+
+    const moving = dx !== 0 || dy !== 0;
+    const length = Math.hypot(dx, dy) || 1;
+
+    this.x += (dx / length) * this.speed * delta;
+    this.y += (dy / length) * this.speed * delta;
+    this.x = Math.max(this.renderWidth / 2, Math.min(bounds.width - this.renderWidth / 2, this.x));
+    this.y = Math.max(this.renderHeight / 2, Math.min(bounds.height - this.renderHeight / 2, this.y));
+
+    if (!manual && this.auto) {
+      if (this.x <= this.renderWidth / 2 + 1) this.runDir = 1;
+      else if (this.x >= bounds.width - this.renderWidth / 2 - 1) this.runDir = -1;
+    }
+    if (dx !== 0) this.facing = Math.sign(dx);
+
+    if (moving) {
+      this.frameTime += delta;
+      if (this.frameTime >= this.frameDuration) {
+        this.frameTime %= this.frameDuration;
+        this.setFrame(this.frame + 1);
+      }
+    } else {
+      this.frameTime = 0;
+      this.setFrame(0);
+    }
+  }
+PUT 177*=186:
+  draw(ctx) {
+    const left = Math.round(this.x - this.renderWidth / 2);
+    const top = Math.round(this.y - this.renderHeight / 2);
+    if (this.facing < 0) {
+      ctx.save();
+      ctx.translate(left + this.renderWidth, top);
+      ctx.scale(-1, 1);
+      ctx.drawImage(
+        this.sheet,
+        this.frame * this.frameWidth, 0, this.frameWidth, this.frameHeight,
+        0, 0, this.renderWidth, this.renderHeight,
+      );
+      ctx.restore();
+    } else {
+      ctx.drawImage(
+        this.sheet,
+        this.frame * this.frameWidth, 0, this.frameWidth, this.frameHeight,
+        left, top, this.renderWidth, this.renderHeight,
+      );
+    }
+  }
     this.frame = 0;
     this.frameTime = 0;
-    this.frameDuration = 0.16;
+    this.frameDuration = 0.1;
     this.sheet = null;
     this.frameWidth = 16;
     this.frameHeight = 24;
@@ -72,9 +114,8 @@ export class AnimatedSprite {
     this.maskCtx = this.maskCanvas.getContext('2d', { willReadFrequently: true });
   }
 
-  async load(src = null) {
+  async load(src = './assets/player.png') {
     try {
-      if (!src) throw new Error('Placeholder');
       const image = new Image();
       image.decoding = 'async';
       image.src = src;
@@ -94,7 +135,6 @@ export class AnimatedSprite {
       this.frames = fallback.frames;
     }
 
-    this.maskCache.clear();
     this.maskCanvas.width = this.frameWidth;
     this.maskCanvas.height = this.frameHeight;
     this.setFrame(0, true);
@@ -137,7 +177,6 @@ export class AnimatedSprite {
   update(delta, bounds) {
     const dx = Number(this.input.isDown('KeyD', 'ArrowRight')) - Number(this.input.isDown('KeyA', 'ArrowLeft'));
     const dy = Number(this.input.isDown('KeyS', 'ArrowDown')) - Number(this.input.isDown('KeyW', 'ArrowUp'));
-    if (dx) this.facing = Math.sign(dx);
     const moving = dx !== 0 || dy !== 0;
     const length = Math.hypot(dx, dy) || 1;
 
@@ -146,7 +185,7 @@ export class AnimatedSprite {
     this.x = Math.max(this.renderWidth / 2, Math.min(bounds.width - this.renderWidth / 2, this.x));
     this.y = Math.max(this.renderHeight / 2, Math.min(bounds.height - this.renderHeight / 2, this.y));
 
-    if (moving || this.animate) {
+    if (moving) {
       this.frameTime += delta;
       if (this.frameTime >= this.frameDuration) {
         this.frameTime %= this.frameDuration;
@@ -162,7 +201,7 @@ export class AnimatedSprite {
     const left = this.x - this.renderWidth / 2;
     const top = this.y - this.renderHeight / 2;
     return {
-      x: this.facing < 0 ? this.frameWidth - 1 - Math.floor((worldX - left) / this.scale) : Math.floor((worldX - left) / this.scale),
+      x: Math.floor((worldX - left) / this.scale),
       y: Math.floor((worldY - top) / this.scale),
     };
   }
@@ -185,7 +224,7 @@ export class AnimatedSprite {
     const down = this.alphaAtLocal(p.x, p.y + 1) / 255;
 
     // Alpha rises as we move into the sprite. Negative gradient points outward.
-    let nx = -(right - left) * this.facing;
+    let nx = -(right - left);
     let ny = -(down - up);
     let length = Math.hypot(nx, ny);
 
@@ -199,27 +238,14 @@ export class AnimatedSprite {
   }
 
   draw(ctx) {
-    ctx.save();
-    ctx.translate(this.x, this.y);
-    ctx.scale(this.facing, 1);
-    ctx.drawImage(this.sheet,
+    ctx.drawImage(
+      this.sheet,
       this.frame * this.frameWidth, 0, this.frameWidth, this.frameHeight,
-      -this.renderWidth / 2, -this.renderHeight / 2, this.renderWidth, this.renderHeight);
-    ctx.restore();
-  }
-
-  sampleWorld(worldX, worldY) {
-    const p = this.worldToLocal(worldX, worldY);
-    if (this.alphaAtLocal(p.x, p.y) <= 24) return null;
-    const k = (p.y * this.frameWidth + p.x) * 4;
-    this.sampleCache ??= new WeakMap();
-    let samples = this.sampleCache.get(this.mask);
-    if (!samples) { samples = []; this.sampleCache.set(this.mask, samples); }
-    if (!samples[k]) {
-      const [r, g, b, a] = this.mask.data.subarray(k, k + 4);
-      samples[k] = { r, g, b, alpha: a / 255, brightness: Math.sqrt(0.299 * r * r + 0.587 * g * g + 0.114 * b * b) / 255 };
-    }
-    return samples[k];
+      Math.round(this.x - this.renderWidth / 2),
+      Math.round(this.y - this.renderHeight / 2),
+      this.renderWidth,
+      this.renderHeight,
+    );
   }
 
   drawMaskDebug(ctx) {
@@ -231,7 +257,7 @@ export class AnimatedSprite {
     for (let y = 0; y < this.frameHeight; y += 1) {
       for (let x = 0; x < this.frameWidth; x += 1) {
         if (this.alphaAtLocal(x, y) > 24) {
-          ctx.fillRect(left + (this.facing < 0 ? this.frameWidth - 1 - x : x) * this.scale, top + y * this.scale, this.scale, this.scale);
+          ctx.fillRect(left + x * this.scale, top + y * this.scale, this.scale, this.scale);
         }
       }
     }

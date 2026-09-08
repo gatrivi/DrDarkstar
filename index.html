@@ -1,26 +1,46 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#02040a" />
-  <title>Dr Darkstar — Frank Pixel Rain</title>
+  <link rel="icon" href="data:," />
+  <title>Dr Darkstar — Rain studies</title>
   <link rel="stylesheet" href="./src/styles.css" />
 </head>
 <body>
   <main id="app">
-    <canvas id="game" aria-label="Dr Darkstar Frank pixel rain experiment"></canvas>
-    <section class="hud" aria-live="polite">
-      <div class="brand">DR DARKSTAR / FRANK PIXEL RAIN</div>
-      <div id="status">loading…</div>
+    <canvas id="game" aria-label="Move the invisible character through rain using WASD, arrow keys, or dragging"></canvas>
+    <header class="hud"><div class="brand">DR DARKSTAR <small>001 / RAIN STUDIES</small></div><div id="status">Waking the rain…</div></header>
+    <section class="intro"><h1>You are the disturbance.</h1><p>An invisible body. A thousand little witnesses.</p></section>
+    <section class="controls" aria-label="Experiment controls">
+      <label class="file">Load music<input id="music" type="file" accept="audio/*" /></label>
+      <button id="audio-toggle" disabled>Play music</button>
+      <button id="demo" aria-pressed="false">Demo music</button>
+      <button id="pulse">Pulse SFX</button>
+      <button id="jump">Jump</button>
+      <button id="roll">Roll</button>
+      <button id="airroll">Jump-roll</button>
+      <button id="shield">Shield · E</button>
+      <button id="autoattack" aria-pressed="false">Autoattack off</button>
+      <label class="animation-picker">Preview <select id="animation-preview"><option value="auto">Play controls</option><option value="idle">Standing</option><option value="run">Running</option><option value="jump">Jump poses</option><option value="roll">Rolling</option><option value="airroll">Air-roll poses</option><option value="cast">Casting + spell</option><option value="shield">Shield</option></select></label>
+      <button id="peek" aria-pressed="false">Reveal mask</button>
+      <button id="animate" aria-pressed="true">Stop animation</button>
+      <button id="pause" aria-pressed="false">Pause</button>
+      <audio id="audio" loop></audio>
+      <span id="track" role="status">Rain listens when you add a track.</span>
     </section>
-    <section class="help">
-      <span>1 / 2 / 3 · image</span>
-      <span>C · color / white</span>
-      <span>B · peek at source</span>
-      <span>R · reset rain</span>
-      <span>P · pause</span>
-    </section>
+    <aside class="toolbox" aria-label="Rain toolbox">
+      <div class="toolbox-head"><strong>RAIN LAB</strong><button id="toolbox-toggle" aria-expanded="true">Hide</button></div>
+      <label>density <input id="density" type="range" min="500" max="15000" step="100" value="10000"><output for="density">10000</output></label>
+      <label>pixel size <input id="particle-size" type="range" min="0.45" max="2.2" step="0.05" value="1"><output for="particle-size">1.00</output></label>
+      <label>fade <input id="fade" type="range" min="0.6" max="8" step="0.1" value="3.08"><output for="fade">3.08</output></label>
+      <label>turn-on smoothing <input id="smoothing" type="range" min="1" max="24" step="1" value="7"><output for="smoothing">7</output></label>
+      <label>sprite reveal <input id="reveal" type="range" min="0.35" max="1.5" step="0.05" value="1"><output for="reveal">1.00</output></label>
+      <label>drift <input id="drift" type="range" min="0" max="2.5" step="0.05" value="1"><output for="drift">1.00</output></label>
+      <button id="toolbox-reset">Reset defaults</button>
+    </aside>
+    <footer class="help"><span>A / D / arrows / drag · move</span><span>W / up · jump</span><span>Shift · roll</span><span>Space · cast</span><span>M · mask</span><span>R · fresh rain</span><span>P · pause</span></footer>
   </main>
   <script type="module" src="./src/main.js"></script>
 </body>
