@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#060a10" />
+  <link rel="icon" href="data:," />
+  <title>Night Hunters — Dr Darkstar</title>
+  <link rel="stylesheet" href="./src/night.css" />
+</head>
+<body>
+  <main class="night-app">
+    <header class="masthead">
+      <a href="./games.html" class="back">← GAME SELECT</a>
+      <div class="identity"><span>003 / DR DARKSTAR</span><h1>NIGHT HUNTERS</h1></div>
+      <div class="weather"><i></i> RAIN / 02:17 AM</div>
+    </header>
+    <section class="console" aria-label="Night Hunters game">
+      <div class="dashboard">
+        <div class="player-readout"><span id="hunter-name">BLADE</span><b id="damage">0%</b><span id="lives" aria-label="3 lives">● ● ●</span></div>
+        <div class="mission"><span>CLEAR THE DISTRICT</span><b><span id="kills">0</span><small> / 6</small></b><span id="wave">WAVE 01 / 02</span></div>
+      </div>
+      <div class="viewport">
+        <canvas id="night-game" width="960" height="600" tabindex="0" aria-label="Night Hunters. Move with A and D, jump with Space, attack with J, charge with K, ranged attack with L, hold E to block, switch hunter with C.">Your browser needs Canvas 2D to play Night Hunters.</canvas>
+        <div class="scanlines" aria-hidden="true"></div>
+        <section id="overlay" class="overlay" aria-label="Mission briefing">
+          <div class="briefing">
+            <p class="eyebrow" id="overlay-eyebrow">SECTOR 09 / OPEN CASE</p>
+            <h2 id="overlay-title">The city has<br>two kinds of monsters.</h2>
+            <p id="overlay-copy">Hunt the vampires. Retire the replicants.<br>Choose a hunter. Clear two waves.</p>
+            <div class="choose" id="choose">
+              <button data-hunter="blade" aria-pressed="true"><strong>BLADE</strong><span>SWORD / SHURIKENS</span></button>
+              <button data-hunter="deckard" aria-pressed="false"><strong>DECKARD</strong><span>BLASTER / CHARGED SHOT</span></button>
+            </div>
+            <button id="start" class="enter" disabled>LOADING THE DISTRICT…</button>
+            <p class="brief-help">A / D move &nbsp; · &nbsp; SPACE jump &nbsp; · &nbsp; J attack<br>Hold K, then release for a heavy attack.</p>
+          </div>
+        </section>
+      </div>
+      <div class="toolbar">
+        <div class="hunter-tabs" aria-label="Active hunter">
+          <button data-hunter="blade" aria-pressed="true">01 BLADE</button>
+          <button data-hunter="deckard" aria-pressed="false">02 DECKARD</button>
+          <span>C TO SWITCH</span>
+        </div>
+        <div class="toggles">
+          <button id="particles" aria-pressed="true" title="Render the whole city, characters and weapons through pixel rain">WORLD RAIN</button>
+          <button id="sound" aria-pressed="false">SOUND OFF</button>
+          <button id="pause" disabled>PAUSE</button>
+          <button id="restart" disabled>RESTART</button>
+        </div>
+      </div>
+    </section>
+    <div class="touch-controls" aria-label="Touch controls">
+      <div><button data-key="KeyA" aria-label="Move left">←</button><button data-key="KeyD" aria-label="Move right">→</button><button data-key="Space" aria-label="Jump">↑</button><button data-key="ShiftLeft" aria-label="Roll">ROLL</button></div>
+      <div><button data-key="KeyJ">ATTACK</button><button data-key="KeyK">CHARGE</button><button data-key="KeyL">RANGED</button><button data-key="KeyE">BLOCK</button></div>
+    </div>
+    <footer>
+      <p class="keys"><span><kbd>A D</kbd> move</span><span><kbd>SPACE</kbd> double-jump</span><span><kbd>SHIFT</kbd> roll</span><span><kbd>J</kbd> attack</span><span><kbd>K</kbd> hold / release</span><span><kbd>L</kbd> ranged</span><span><kbd>E</kbd> hold to block</span><span><kbd>P</kbd> pause</span></p>
+      <p id="status" role="status">Loading the city and four character sprites…</p>
+      <p class="hint">Double-tap to dash. Face attacks to block. Release E to recover your guard.</p>
+    </footer>
+    <audio id="audio"></audio>
+  </main>
+  <script type="module" src="./src/night.js"></script>
+</body>
+</html>

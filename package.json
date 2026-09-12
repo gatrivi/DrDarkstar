@@ -1,0 +1,10 @@
+{
+  "name": "dr-darkstar",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node server.mjs",
+    "build": "node scripts/build.mjs",
+    "test": "node --test tests/rain.test.mjs tests/smash.test.mjs tests/night.test.mjs"
+  }
+}

@@ -5,7 +5,8 @@ const CHARACTER = './WhatsApp Image 2026-09-06 at 3.19.01 PM.jpeg';
 const EFFECTS = './WhatsApp Image 2026-09-06 at 3.19.01 PM (1).jpeg';
 const row = (edges, y, h) => edges.slice(0, -1).map((x, i) => [x, y, edges[i + 1] - x, h]);
 export const CAPE_CLIPS = {
-  idle: { crops: [[24,565,132,225], [174,565,136,225], [326,565,136,225], [174,565,136,225]], fps: 2 },
+  // Full hand-extension / staff-materialization cycle; keep the tall staff tip.
+  idle: { crops: row([24,174,326,485,640,807,974,1125,1280,1450], 515,280), fps: 2 },
   run: { crops: row([20,195,350,500,657,817,965,1110,1270,1450], 315,185), fps: 9 },
   roll: { crops: row([15,180,335,485,650,800,950,1105,1270,1450], 120,160), fps: 13 },
   // Provisional airborne sequence inferred from the run/leap poses.
@@ -72,9 +73,12 @@ export class CapeSprite extends AnimatedSprite {
   }
 
   async load() {
-    const images = await Promise.all([CHARACTER, EFFECTS].map(async src => {
-      const image = new Image(); image.src = src; await image.decode(); return image;
-    }));
+    const images = await Promise.all([CHARACTER, EFFECTS].map(src => new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = () => reject(new Error('Could not load ' + src));
+      image.src = src;
+    })));
     const effects = [[75,35,58,57], [142,16,52,57], [132,75,61,53]].map(rect => cut(images[1], rect));
     for (const [name, definition] of Object.entries(CAPE_CLIPS)) {
       this.clips[name] = definition.crops.map((rect, i) => {

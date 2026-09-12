@@ -1,8 +1,9 @@
 ﻿import http from 'node:http';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
-const root = process.cwd();
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png' };
+const root = path.resolve(process.argv[2] || '.');
+const port = Number(process.env.PORT || 8080);
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg' };
 http.createServer(async (req, res) => {
   try {
     const pathname = decodeURIComponent(new URL(req.url, 'http://localhost').pathname);
@@ -12,7 +13,7 @@ http.createServer(async (req, res) => {
       res.writeHead(403).end(); return;
     }
     const body = await readFile(file);
-    res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream' });
+    res.writeHead(200, { 'Content-Type': types[path.extname(file)] || 'application/octet-stream', 'Cache-Control': 'no-store' });
     res.end(body);
   } catch { res.writeHead(404).end('Not found'); }
-}).listen(8080, '127.0.0.1', () => console.log('Dr Darkstar: http://localhost:8080'));
+}).listen(port, '127.0.0.1', () => console.log(`Dr Darkstar: http://localhost:${port}`));

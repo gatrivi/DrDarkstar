@@ -42,7 +42,10 @@
     this.time += delta;
     const { bass, mid, effect } = audio;
     const bounds = this.bounds;
-    for (const drop of this.drops) {
+    const smoothing = 1 - Math.exp(-delta * this.settings.smoothing);
+    const count = Math.min(this.drops.length, this.settings.maxDrops ?? this.drops.length);
+    for (let index = 0; index < count; index++) {
+      const drop = this.drops[index];
       if (this.focused) {
         // The sampling window follows the actor, but particles flow through its
         // entire rectangle independently of opaque pixels and animation poses.
@@ -70,7 +73,7 @@
       // Sample at the rendered position: no stale colors outside the silhouette.
       drop.pixel = this.actor.sampleWorld(drop.x, drop.y);
       const targetIntensity = drop.pixel ? this.settings.reveal * (0.2 + drop.pixel.brightness * 0.8) : 0.12;
-      drop.intensity += (targetIntensity - drop.intensity) * (1 - Math.exp(-delta * this.settings.smoothing));
+      drop.intensity += (targetIntensity - drop.intensity) * smoothing;
       if (drop.pixel && !drop.inside) this.hits++;
       drop.inside = !!drop.pixel;
     }
@@ -79,7 +82,9 @@
 
   draw(ctx) {
     const { bass, treble, effect } = this.audio;
-    for (const drop of this.drops) {
+    const count = Math.min(this.drops.length, this.settings.maxDrops ?? this.drops.length);
+    for (let index = 0; index < count; index++) {
+      const drop = this.drops[index];
       const p = drop.pixel;
       if (this.focused && !p) continue;
       const shimmer = 1 + treble * (0.5 + Math.sin(drop.phase + this.time * 18) * 0.5);

@@ -1,4 +1,4 @@
-﻿import { GameLoop } from './engine/GameLoop.js';
+import { GameLoop } from './engine/GameLoop.js';
 import { Input } from './engine/Input.js';
 import { CapeSprite } from './game/CapeSprite.js';
 import { CollisionRain } from './effects/CollisionRain.js';

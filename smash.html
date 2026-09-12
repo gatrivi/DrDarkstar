@@ -1,0 +1,26 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#02040a" />
+  <link rel="icon" href="data:," />
+  <title>Super Smash Cousins</title>
+  <link rel="stylesheet" href="./src/styles.css" />
+</head>
+<body>
+  <main id="app">
+    <canvas id="game" aria-label="Super Smash Cousins — fight Andy against the training dummy"></canvas>
+    <header class="hud"><div class="brand">SUPER SMASH COUSINS <small>001 / FAMILY BATTLE</small></div><div id="status">Loading Andy…</div></header>
+    <section class="controls" aria-label="Game controls">
+      <a class="file" href="./games.html">◀ Game select</a>
+      <button id="swap" title="Swap between Andy and Eliseo">Swap fighter · C (ANDY)</button>
+      <button id="reset">Reset match</button>
+      <audio id="audio" loop></audio>
+      <span id="track" role="status">ANDY vs DUMMY · first to take all stocks wins.</span>
+    </section>
+    <footer class="help"><span>A / D / arrows · move</span><span>W / Space · jump (double-jump)</span><span>double-tap A/D · dash</span><span>Shift · roll</span><span>J · aa</span><span>hold K · smash</span><span>L · tilt / serve</span><span>I · summon</span><span>U · buff</span><span>Esc · game select</span></footer>
+  </main>
+  <script type="module" src="./src/smash.js"></script>
+</body>
+</html>

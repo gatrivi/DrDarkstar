@@ -6,13 +6,32 @@ A small canvas playground: move an invisible animated character through rain. Dr
 
 ## Run
 
-Requires Node.js. No dependencies or build step.
+Requires Node.js. No dependencies; local development serves the source directly.
 
 ```sh
 node server.mjs
 ```
 
 Open http://localhost:8080.
+
+`npm run build` copies the three games and their required assets into `dist/`. `vercel.json` selects this static output and skips dependency installation. Push to `main` to use the existing Vercel Git autodeploy. To preview the build locally, run `node server.mjs dist` after stopping the source server (or set `PORT` to another port).
+
+### Night Hunters — third demo
+
+Open [Night Hunters](http://localhost:8080/night.html), or choose **003 / Night Shift** in [Game select](http://localhost:8080/games.html).
+
+Play Blade or Deckard against six vampires and replicants in two waves. The clip's generated city and character art use Dr Darkstar's actual `CollisionRain` renderer, with movement, double-jumps, dashes, rolls, and damage-scaled knockback reused from Super Smash Cousins. Each hunter has three lives; enemies fight back with telegraphed claw attacks and projectiles.
+
+- **A/D or arrows:** move; double-tap to dash. **Space/W:** double-jump. **S:** fast-fall.
+- **J:** Blade's sword / Deckard's blaster. **Hold K, release:** charged sword / charged shot.
+- **L:** spinning shuriken / blaster. **Hold E:** sword block / forearm shield. Face the incoming attack; release E to recover guard. Exhausted guard briefly breaks.
+- **Shift:** dodge roll. **C:** switch hunter, preserving position, damage, lives, and guard.
+- **P:** pause/resume. **Esc:** game select. On-screen controls support touch.
+- **World Rain:** toggle the entire scene's particle rendering. Buildings, hunters, shields, weapons, reflections, and impacts feed the shared pixel rain sampler. Enabled by default; turning it off restores the original city with particle bodies. **Sound:** synthesized atmosphere and combat effects.
+
+`node --test tests/night.test.mjs tests/smash.test.mjs tests/rain.test.mjs` checks combat and the shared rain/Smash behavior. `node tests/night-browser.mjs` checks the playable encounter and responsive controls; its local browser paths can be overridden with `PLAYWRIGHT_MODULE` and `CHROMIUM_PATH`. Browser screenshots and results are saved under `output/night-hunters/`.
+
+The original atlas has four main poses per character; a second generated atlas adds three shuriken-throw cels and three guard cels for each hunter. Walking uses derived step frames. This is a single-player fan-art demo. `node tests/night-effects-browser.mjs` captures the new poses and checks pause/rendering behavior and frame rates.
 
 ## Controls
 
