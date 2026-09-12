@@ -14,8 +14,16 @@ sound.enable().catch(() => {});
 let player = 'andy';
 let stage = new SmashStage({ input, width, height, sound, player });
 const swapButton = document.querySelector('#swap');
+const modeButton = document.querySelector('#mode');
+function modeLabel() {
+  return stage.mode === 'versus' ? 'Mode · T (VERSUS P1 vs P2)' : 'Mode · T (P1 vs CPU)';
+}
+function versusStatus() {
+  const foe = stage.mode === 'versus' ? 'P2' : 'DUMMY';
+  return `SUPER SMASH COUSINS — ${stage.andy.name} vs ${foe}`;
+}
 let swapping = false;
-try { await stage.load(); status.textContent = 'SUPER SMASH COUSINS — ANDY vs DUMMY'; }
+try { await stage.load(); status.textContent = versusStatus(); }
 catch (error) {
   status.textContent = 'Could not load the fighter. Reload to retry.';
   throw error;
@@ -25,19 +33,25 @@ swapButton.onclick = async () => {
   swapping = true;
   player = player === 'andy' ? 'eliseo' : 'andy';
   swapButton.textContent = 'Loading…';
-  const next = new SmashStage({ input, width, height, sound, player });
+  const next = new SmashStage({ input, width, height, sound, player, mode: stage.mode });
   try {
     await next.load();
     stage = next;
     resize();
     swapButton.textContent = `Swap fighter · C (${player === 'andy' ? 'ANDY' : 'ELISEO'})`;
-    status.textContent = `SUPER SMASH COUSINS — ${player === 'andy' ? 'ANDY' : 'ELISEO'} vs DUMMY`;
+    modeButton.textContent = modeLabel();
+    status.textContent = versusStatus();
   } catch (error) {
     player = player === 'andy' ? 'eliseo' : 'andy';
     swapButton.textContent = `Swap fighter · C (${player === 'andy' ? 'ANDY' : 'ELISEO'})`;
     status.textContent = 'Could not load that fighter.';
   }
   swapping = false;
+};
+modeButton.onclick = () => {
+  stage.setMode(stage.mode === 'versus' ? 'cpu' : 'versus');
+  modeButton.textContent = modeLabel();
+  status.textContent = versusStatus();
 };
 
 function resize() {
@@ -56,19 +70,25 @@ document.querySelector('#reset').onclick = () => {
     f.stocks = 3;
     f.respawn(stage);
   }
-  status.textContent = 'Rematch! ANDY vs DUMMY';
+  status.textContent = `Rematch! ${stage.andy.name} vs ${stage.mode === 'versus' ? 'P2' : 'DUMMY'}`;
 };
 
 new GameLoop({
   update(delta) {
     if (input.consume('Escape')) { location.href = './games.html'; return; }
     if (input.consume('KeyC')) swapButton.click();
+    if (input.consume('KeyT')) modeButton.click();
     stage.update(delta, sound.update(delta));
+    if (modeButton.textContent !== modeLabel()) modeButton.textContent = modeLabel();
     if (stage.dummy.stocks <= 0 || stage.andy.stocks <= 0) {
-      const winner = stage.andy.stocks > 0 ? stage.andy.name : stage.dummy.name;
+      const winner = stage.andy.stocks > 0
+        ? (stage.mode === 'versus' ? `P1 · ${stage.andy.name}` : stage.andy.name)
+        : (stage.mode === 'versus' ? `P2 · ${stage.dummy.name}` : stage.dummy.name);
       status.textContent = `${winner} WINS! — press Reset match for a rematch`;
     } else if (status.textContent.startsWith('Rematch')) {
-      status.textContent = `SUPER SMASH COUSINS — ${stage.andy.name} vs DUMMY`;
+      status.textContent = versusStatus();
+    } else if (status.textContent.includes('WINS')) {
+      status.textContent = versusStatus();
     }
     input.endFrame();
   },

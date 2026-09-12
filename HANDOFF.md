@@ -1,5 +1,9 @@
 # Dr Darkstar handoff — 2026-09-08
 
+## Added 2026-09-12 — Smash Cousins melee demo (branch `smash-cousins-demo`)
+
+Melee-inspired kit for both cousins (inspiration only, arcade-tuned): neutral **jab**, directional **tilts** (f/up/down via J+dir or L+dir), chargeable **smashes** (f/up/down via hold-K, down-smash hits both sides, up moves hit above), **shield** bubble (60HP, 0.7x damage, drain/regen, shieldstun, pushback, break → dizzy), and **rolls** (directional, invulnerable) + neutral **spot dodge** + **air dodge**. P1 (WASD + J/L/K/S/Shift) vs CPU dummy with a full-kit AI (chase, jab/tilt/smother, charged smashes, reactive shields/rolls), or local **versus**: press any P2 key (arrows + `,.⁄` + RightShift, T toggles) to join. Shield bubbles, charge auras, directional slash arcs, roll afterimages, combat popups (HIT/BLOCK/DODGE/BREAK), shield + charge bars in the HUD, new procedural SFX (shieldHit/shieldBreak/dodge/spot). Night Hunters untouched behaviorally (legacy fallbacks: L=serve, K=golfswing, neutral-Shift roll, no S-shield). Verify: `npm test` 34 passing; headless harness 24/24 combat checks; Edge headless screenshot renders with zero console errors.
+
 ## Added 2026-09-12 — Night Hunters
 
 Latest expansion: **L throws Blade's spinning shuriken**, with new windup/release/follow-through frames. **Hold E blocks**: Blade parries with his sword; Deckard raises a forearm shield. Guard protects the front, drains while held/hit, recovers on release, and breaks at zero. Switching retains guard. New atlas: `assets/night-hunters/throw-guard-v2.png` (frames 6–8 throw, 9–11 guard; prompts adjacent).

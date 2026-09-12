@@ -54,7 +54,22 @@ export class SmashSfx {
 
   dash(ctx, now)      { this.burst(ctx, now, { dur: 0.18, vol: 0.28, f0: 500, f1: 2400, q: 1.5 }); }
   roll(ctx, now)      { this.burst(ctx, now, { dur: 0.24, vol: 0.18, f0: 280, f1: 900, q: 2 }); }
+  dodge(ctx, now)     { this.burst(ctx, now, { dur: 0.2, vol: 0.16, f0: 900, f1: 300, q: 2 }); }
+  spot(ctx, now)      { this.burst(ctx, now, { dur: 0.1, vol: 0.14, f0: 1200, f1: 500, q: 2 }); }
   land(ctx, now)      { this.blip(ctx, now, { f0: 150, f1: 65, dur: 0.09, vol: 0.22, type: 'sine' }); }
+  shieldUp(ctx, now)  { this.blip(ctx, now, { f0: 380, f1: 520, dur: 0.08, vol: 0.1, type: 'triangle' }); }
+
+  // Shield block: bright metallic "ting" over a low thud.
+  shieldHit(ctx, now) {
+    this.blip(ctx, now, { f0: 980, f1: 640, dur: 0.09, vol: 0.28, type: 'triangle' });
+    this.blip(ctx, now, { f0: 200, f1: 120, dur: 0.1, vol: 0.25, type: 'sine' });
+  }
+
+  // Shield break: glass shatter + dizzy wobble.
+  shieldBreak(ctx, now) {
+    this.burst(ctx, now, { dur: 0.35, vol: 0.45, f0: 3200, f1: 500, q: 0.8 });
+    this.blip(ctx, now, { f0: 700, f1: 90, dur: 0.5, vol: 0.3, type: 'sawtooth' });
+  }
 
   jump(ctx, now) {
     this.blip(ctx, now, { f0: 260, f1: 560, dur: 0.14, vol: 0.16, type: 'square' });
