@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dr Darkstar · Idle keyframes</title>
+<style>
+  :root { color-scheme: dark; font: 16px system-ui; background: #10141e; color: #eef2ff; }
+  body { max-width: 1000px; margin: auto; padding: 28px; }
+  h1 { font-size: 28px; } p { color: #b9c3d7; line-height: 1.5; }
+  a { color: #a5b9ff; } .controls { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; }
+  button, select { padding: 10px; font: inherit; } input { max-width: 100%; }
+  .comparison { display: grid; grid-template-columns: repeat(auto-fit,minmax(260px,1fr)); gap: 24px; margin-top: 24px; }
+  canvas { width: 100%; background: #080b12; border-radius: 12px; }
+  h2 { font-size: 18px; } #status { min-height: 24px; }
+</style>
+<h1>Dr Darkstar · The staff takes shape</h1>
+<p>The original nine poses alongside eight proposed transition drawings. Watch the cape extend a hand, form the staff, and settle again.</p>
+<div class="controls">
+  <button id="play" disabled>Pause</button>
+  <label>Speed <select id="speed"><option value="1">Slow</option><option value="2" selected>Original</option><option value="4">Fast</option></select></label>
+  <label>Sequence <select id="sequence"><option value="generated">New drawings</option><option value="combined">Original + inbetweens</option></select></label>
+  <label>Frame <input id="scrub" type="range" min="0" max="7" value="0" step="1"></label>
+</div>
+<p id="status" role="status">Loading artwork…</p>
+<div class="comparison">
+  <section><h2>Original · restored full idle</h2><canvas id="original" width="384" height="432" aria-label="Original idle animation"></canvas></section>
+  <section><h2>Proposed transitions</h2><canvas id="proposed" width="384" height="432" aria-label="Generated idle transitions"></canvas></section>
+</div>
+<p>The new contours are cleaner than the original inkwork. This preview lets you judge their motion before using them in the game. Black backgrounds are removed for playback.</p>
+<p><a href="assets/drdarkstar/idle-inbetweens-v1.png" download>Download the new sheet</a> · <a href="rain.html">Rain Studies</a></p>
+<script type="module">
+import { CapeSprite, keyBlack } from './src/game/CapeSprite.js';
+const $ = id => document.getElementById(id);
+const descriptions = ['Cape unfurls', 'Hand extends; staff seed appears', 'Shaft grows', 'Hook and dot form', 'Cape billows', 'Staff dissolves', 'Hand withdraws', 'Cape settles'];
+try {
+  const actor = new CapeSprite({ input: { isDown: () => false }, width: 800, height: 800, scale: 1 });
+  await actor.load();
+  const sheet = new Image();
+  await new Promise((resolve, reject) => { sheet.onload = resolve; sheet.onerror = reject; sheet.src = './assets/drdarkstar/idle-inbetweens-v1.png'; });
+  const generated = Array.from({ length: 8 }, (_, i) => {
+    const tile = document.createElement('canvas'); tile.width = sheet.width / 4; tile.height = sheet.height / 2;
+    const ctx = tile.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(sheet, (i % 4) * tile.width, Math.floor(i / 4) * tile.height, tile.width, tile.height, 0, 0, tile.width, tile.height);
+    const pixels = ctx.getImageData(0, 0, tile.width, tile.height); keyBlack(pixels.data); ctx.putImageData(pixels, 0, 0);
+    let bottom = 0, mass = 0, center = 0;
+    for (let y = 0; y < tile.height; y++) for (let x = 0; x < tile.width; x++) {
+      const k = (y * tile.width + x) * 4;
+      if (pixels.data[k + 3] > 128) bottom = Math.max(bottom, y + 1);
+      if (x > tile.width * .4 && y > tile.height * .4 && y < tile.height * .75 && Math.min(...pixels.data.subarray(k,k+3)) > 150) { mass++; center += x; }
+    }
+    const canvas = document.createElement('canvas'); canvas.width = 128; canvas.height = 144;
+    const scale = 100 / (tile.height * .58);
+    canvas.getContext('2d').drawImage(tile, 58 - (mass ? center / mass : tile.width * .6) * scale, 136 - bottom * scale, tile.width * scale, tile.height * scale);
+    return { canvas, label: descriptions[i] };
+  });
+  const original = actor.clips.idle.map((frame, i) => ({ ...frame, label: `Original ${i + 1}` }));
+  const combined = original.flatMap((frame, i) => i < 8 ? [frame, generated[i]] : [frame]);
+  let playing = true, elapsed = 0, index = 0, last = performance.now();
+  const frames = () => $('sequence').value === 'combined' ? combined : generated;
+  function draw() {
+    const list = frames();
+    const originalIndex = $('sequence').value === 'combined' ? Math.floor(index / 2) : index;
+    for (const [id, frame] of [['original', original[originalIndex % original.length]], ['proposed', list[index]]]) {
+      const ctx = $(id).getContext('2d'); ctx.clearRect(0,0,384,432); ctx.drawImage(frame.canvas,0,0,384,432);
+    }
+    $('scrub').value = index;
+    $('status').textContent = `${index + 1} / ${list.length} · ${list[index].label}`;
+  }
+  $('play').disabled = false;
+  $('play').onclick = () => { playing = !playing; $('play').textContent = playing ? 'Pause' : 'Play'; };
+  $('scrub').oninput = () => { playing = false; $('play').textContent = 'Play'; index = Number($('scrub').value); elapsed = 0; draw(); };
+  $('sequence').onchange = () => { index = 0; elapsed = 0; $('scrub').max = frames().length - 1; draw(); };
+  function tick(now) {
+    if (playing) {
+      elapsed += Math.min((now - last) / 1000, .1);
+      const duration = 1 / Number($('speed').value);
+      if (elapsed >= duration) { elapsed %= duration; index = (index + 1) % frames().length; draw(); }
+    }
+    last = now; requestAnimationFrame(tick);
+  }
+  draw(); requestAnimationFrame(tick);
+} catch (error) { $('status').textContent = `Could not load artwork: ${error.message || 'image unavailable'}`; console.error(error); }
+</script>
+</html>

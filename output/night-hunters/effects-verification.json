@@ -1,0 +1,13 @@
+{
+  "metrics": {
+    "world": {
+      "fps": 40,
+      "medianFrameMs": 16.9
+    },
+    "classic": {
+      "fps": 60,
+      "medianFrameMs": 16.7
+    }
+  },
+  "errors": []
+}
