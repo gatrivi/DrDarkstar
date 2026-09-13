@@ -5,7 +5,7 @@ import {
 } from '../src/game/smash/SmashStage.js';
 import { ELISEO_MOVES, ELISEO_POSES } from '../src/game/smash/Eliseo.js';
 import { ANDY_POSES } from '../src/game/smash/AndyFighter.js';
-import { MOVES as ANDY_MOVES, SHIELD, shieldstun, chargeBonus, hitstopFor, shakeFor, KO_HITSTOP } from '../src/game/smash/Moveset.js';
+import { MOVES as ANDY_MOVES, SHIELD, shieldstun, chargeBonus, hitstopFor, shakeFor, KO_HITSTOP, MAX_CHARGE, CHARGE_DAMAGE_MULT, COUNTER_HIT_MULT } from '../src/game/smash/Moveset.js';
 
 // Full melee-inspired kit both fighters must answer to.
 const KIT = ['jab', 'ftilt', 'utilt', 'dtilt', 'windup', 'fsmash', 'usmash', 'dsmash',
@@ -92,11 +92,22 @@ test('charge adds to base knockback', () => {
   assert.ok(knockback(0, 520, 2) > knockback(0, 240, 2));
 });
 
-test('charge bonus caps at full 1.1s hold', () => {
-  const full = chargeBonus(1.1);
-  const over = chargeBonus(5);
+test('charge bonus caps at full charge and scales with base damage', () => {
+  const full = chargeBonus(MAX_CHARGE, 14);
+  const over = chargeBonus(5, 14);
   assert.deepEqual(over, full);
-  assert.ok(full.damage > chargeBonus(0.2).damage);
+  assert.ok(full.damage > chargeBonus(0.2, 14).damage);
+});
+
+test('full charge deals 1.3671x damage (Melee)', () => {
+  assert.equal(MAX_CHARGE, 1.0);
+  assert.equal(CHARGE_DAMAGE_MULT, 1.3671);
+  for (const table of [ANDY_MOVES, ELISEO_MOVES]) {
+    const base = table.fsmash.damage;
+    const total = base + chargeBonus(MAX_CHARGE, base).damage;
+    assert.ok(Math.abs(total - base * CHARGE_DAMAGE_MULT) < 1e-9);
+  }
+  assert.equal(COUNTER_HIT_MULT, 1.2);
 });
 
 test('shield takes 0.7x damage (melee density)', () => {
@@ -136,10 +147,10 @@ test('hitstop scales: jab < tilt < charged smash, KO longest', () => {
   const jab = hitstopFor(ANDY_MOVES.jab, 0);
   const tilt = hitstopFor(ANDY_MOVES.ftilt, 0);
   const smash = hitstopFor(ANDY_MOVES.fsmash, 0);
-  const charged = hitstopFor(ANDY_MOVES.fsmash, 1.1);
+  const charged = hitstopFor(ANDY_MOVES.fsmash, MAX_CHARGE);
   assert.ok(jab < tilt && tilt < smash && smash < charged);
   assert.ok(charged <= 0.14 && KO_HITSTOP > charged);
-  assert.equal(hitstopFor(ANDY_MOVES.fsmash, 99), hitstopFor(ANDY_MOVES.fsmash, 1.1));
+  assert.equal(hitstopFor(ANDY_MOVES.fsmash, 99), hitstopFor(ANDY_MOVES.fsmash, MAX_CHARGE));
 });
 
 test('shake grows with damage and caps', () => {

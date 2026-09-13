@@ -1,5 +1,5 @@
 import { AnimatedSprite } from '../AnimatedSprite.js';
-import { MOVES, SHIELD } from './Moveset.js';
+import { MOVES, SHIELD, MAX_CHARGE } from './Moveset.js';
 
 // Dual control schemes so two cousins can fool around on one keyboard.
 // P1 (left side): A/D move · W jump · S shield/fast-fall · J jab+tilts ·
@@ -584,7 +584,7 @@ export class AndyFighter extends AnimatedSprite {
     }
     if (this.action?.name === 'windup') {
       if (smashHeld) {
-        this.action.charge = Math.min(1.1, this.action.charge + delta);
+        this.action.charge = Math.min(MAX_CHARGE, this.action.charge + delta);
         const kind = this.smashVariant(input, B);
         this.action.smashKind = kind;
         const mv = this.moveTable[kind];
@@ -598,7 +598,10 @@ export class AndyFighter extends AnimatedSprite {
         if (!this.moveTable[kind] && this.moveTable.golfswing) kind = 'golfswing';
         const charge = this.action.charge;
         this.action = null;
-        if (this.moveTable[kind]) {
+        // Smash attacks are grounded moves: releasing mid-air cancels.
+        if (!this.onGround) {
+          this.setFrame(this.frameIndex.idle ?? 0);
+        } else if (this.moveTable[kind]) {
           this.startMove(kind, { charge });
           stage.sfx?.play('smashRelease');
         }

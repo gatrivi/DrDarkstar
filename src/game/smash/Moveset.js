@@ -40,7 +40,7 @@ export function shieldstun(damage) {
 export function hitstopFor(move = {}, charge = 0) {
   if (move.spawn) return 0.02;
   if (move.chargeable) {
-    return Math.min(0.14, 0.07 + Math.max(0, Math.min(1.1, charge)) * 0.05);
+    return Math.min(0.14, 0.07 + Math.max(0, Math.min(MAX_CHARGE, charge)) * 0.05);
   }
   if ((move.damage ?? 0) >= 6) return 0.045;
   return 0.03;
@@ -53,10 +53,21 @@ export function shakeFor(damage = 0) {
   return Math.min(16, 4 + damage * 0.6);
 }
 
-// Charge bonus: 0..1.1s held. Damage +10 per second held, base KB +280/s.
-export function chargeBonus(charge = 0) {
-  const c = Math.max(0, Math.min(1.1, charge));
-  return { damage: c * 10, base: c * 280 };
+// Melee smash-charge spec (ssbwiki.com/Smash_attack): a smash may be charged
+// for up to 60 frames (1 second); a fully-charged smash deals 1.3671x damage.
+// Charging is a commitment: releasing fires, getting hit drops it, and the
+// move only fires grounded. Hitting a charging fighter deals 1.2x knockback
+// (pre-Ultimate counter-hit rule).
+export const MAX_CHARGE = 1.0;
+export const CHARGE_DAMAGE_MULT = 1.3671;
+export const COUNTER_HIT_MULT = 1.2;
+
+// Charge bonus for a move with base `damage`, held `charge` seconds.
+// Damage scales up to CHARGE_DAMAGE_MULT at full charge; base knockback
+// gains a flat bonus so charged smashes also KO earlier, as in Melee.
+export function chargeBonus(charge = 0, damage = 0) {
+  const frac = Math.max(0, Math.min(MAX_CHARGE, charge)) / MAX_CHARGE;
+  return { damage: damage * (CHARGE_DAMAGE_MULT - 1) * frac, base: 180 * frac };
 }
 
 const DEF = (over) => ({

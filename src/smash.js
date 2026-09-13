@@ -21,6 +21,15 @@ let stage = new SmashStage({ input, width, height, sound, player });
 const swapButton = document.querySelector('#swap');
 const modeButton = document.querySelector('#mode');
 const musicButton = document.querySelector('#music');
+const pauseButton = document.querySelector('#pause');
+function pauseLabel() {
+  return paused ? 'Resume · P' : 'Pause · P';
+}
+function togglePause() {
+  paused = !paused;
+  pauseButton.textContent = pauseLabel();
+}
+pauseButton.onclick = togglePause;
 function modeLabel() {
   return stage.mode === 'versus' ? 'Mode · T (VERSUS P1 vs P2)' : 'Mode · T (P1 vs CPU)';
 }
@@ -102,7 +111,7 @@ new GameLoop({
       for (const f of [stage.andy, stage.dummy]) f.percent = 0;
       stage.popup(stage.width / 2, stage.height * 0.3, 'DAMAGE RESET', '#9adcff');
     }
-    if (input.consume('KeyP')) paused = !paused;
+    if (input.consume('KeyP')) togglePause();
     if (!paused) {
       stage.update(delta, sound.update(delta));
       if (modeButton.textContent !== modeLabel()) modeButton.textContent = modeLabel();

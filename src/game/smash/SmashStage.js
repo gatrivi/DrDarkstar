@@ -5,7 +5,7 @@ import { Retriever } from './Retriever.js';
 import { SnakeSummon } from './SnakeSummon.js';
 import { CollisionRain } from '../../effects/CollisionRain.js';
 import { SmashSfx } from './Sfx.js';
-import { SHIELD, chargeBonus, shieldstun, hitstopFor, shakeFor, KO_HITSTOP } from './Moveset.js';
+import { SHIELD, chargeBonus, shieldstun, hitstopFor, shakeFor, KO_HITSTOP, MAX_CHARGE, COUNTER_HIT_MULT } from './Moveset.js';
 
 // Pure helpers (unit-tested in tests/smash.test.mjs)
 export function knockback(percent, base, scaling, vegan = false) {
@@ -176,7 +176,7 @@ export class SmashStage {
     // Finish a started smash charge, then let controls release handle it.
     if (this.ai.plan === 'charge' && d.action?.name === 'windup') {
       this.ai.chargeT -= delta;
-      d.action.charge = Math.min(1.1, (d.action.charge || 0) + delta);
+      d.action.charge = Math.min(MAX_CHARGE, (d.action.charge || 0) + delta);
       if (this.ai.chargeT <= 0) {
         const kind = d.action.smashKind || 'fsmash';
         const charge = d.action.charge;
@@ -251,7 +251,7 @@ export class SmashStage {
       return 'dodge';
     }
     if (blockedByShield(target)) {
-      const cost = shieldCost(move.damage + chargeBonus(charge).damage);
+      const cost = shieldCost(move.damage + chargeBonus(charge, move.damage).damage);
       target.shieldHP = Math.max(0, target.shieldHP - cost);
       target.shieldstun = Math.max(target.shieldstun, shieldstun(move.damage));
       // Shield pushback for both (melee-style), defender slides more.
@@ -275,10 +275,13 @@ export class SmashStage {
       }
       return 'block';
     }
-    const bonus = chargeBonus(charge);
+    const bonus = chargeBonus(charge, move.damage);
     const damage = move.damage + (move.damage ? bonus.damage : 0);
     target.percent = Math.min(999, target.percent + damage);
-    const kb = knockback(target.percent, move.base + (move.chargeable ? bonus.base : 0), move.scaling, attacker.veganGlow > 0);
+    // Melee counter-hit rule: charging fighters take 1.2x knockback.
+    const countered = target.action?.name === 'windup';
+    const kb = knockback(target.percent, move.base + (move.chargeable ? bonus.base : 0), move.scaling, attacker.veganGlow > 0)
+      * (countered ? COUNTER_HIT_MULT : 1);
     const angle = move.angle ?? -0.3;
     const dirSign = move.box === 'up' ? 1 : (attacker.facing || 1);
     const hDir = move.box === 'both' ? Math.sign(target.x - attacker.x) || (attacker.facing || 1) : dirSign;
@@ -295,7 +298,8 @@ export class SmashStage {
     this.koFlashes.push({ x: target.x, y: target.y - target.renderHeight * 0.2, time: 0, kind: 'hit' });
     const label = move.label || attacker.action?.name || 'HIT';
     const short = label.split('—')[0].split('(')[0].trim().toUpperCase().slice(0, 14);
-    this.popup(target.x, target.y - target.renderHeight * 0.7, `${short} ${Math.round(damage)}%`, '#ffd34d');
+    this.popup(target.x, target.y - target.renderHeight * 0.7,
+      `${countered ? 'COUNTER ' : ''}${short} ${Math.round(damage)}%`, countered ? '#ff9a5a' : '#ffd34d');
     return 'hit';
   }
 
@@ -494,7 +498,7 @@ export class SmashStage {
     }
     // Smash charge bars for whichever fighter is winding up.
     for (const [f, x] of [[this.andy, this.width * 0.25], [this.dummy, this.width * 0.75]]) {
-      const charge = f.action?.name === 'windup' ? (f.action.charge ?? 0) / 1.1 : 0;
+      const charge = f.action?.name === 'windup' ? (f.action.charge ?? 0) / MAX_CHARGE : 0;
       if (charge > 0) {
         const kind = (f.action.smashKind || 'fsmash').toUpperCase();
         ctx.font = '11px monospace';
