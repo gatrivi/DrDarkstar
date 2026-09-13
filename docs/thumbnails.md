@@ -29,17 +29,19 @@ Telegram / Discord, and the same image dresses the game-select card.
    (the deploy only includes listed files — this step is the one everyone
    forgets).
 4. Paste the tag block into `<head>`, swapping text and image path
-   (root-relative `/assets/...` so it resolves on localhost AND Vercel —
-   never guess the domain):
+   (absolute `https://drdarkstar.gatrivi.com/...` — relative paths fail
+   on WhatsApp; the domain is known so hardcode it):
    ```html
    <meta name="description" content="..." />
    <meta property="og:type" content="website" />
    <meta property="og:title" content="..." />
    <meta property="og:description" content="..." />
-   <meta property="og:image" content="/assets/newgame-thumbnail.png" />
+   <meta property="og:image" content="https://drdarkstar.gatrivi.com/assets/newgame-thumbnail.png" />
    <meta name="twitter:card" content="summary_large_image" />
-   <meta name="twitter:image" content="/assets/newgame-thumbnail.png" />
+   <meta name="twitter:image" content="https://drdarkstar.gatrivi.com/assets/newgame-thumbnail.png" />
    ```
+   `og:image` MUST be an absolute `https://...` URL — WhatsApp ignores
+   relative paths and shows no image (learned the hard way on night.html).
 5. Add the card `<img src="./assets/newgame-thumbnail.png" width="1200"
    height="630" ...>` to `games.html` (`.card img` styling already exists).
 6. Verify: `npm run build` includes it in `dist/`, both URLs return 200
