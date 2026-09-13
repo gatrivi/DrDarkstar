@@ -744,7 +744,7 @@ export class AndyFighter extends AnimatedSprite {
     this.shieldstun = 0;
     this.shieldBreakStun = 0;
     this.dropLag = 0;
-    this.invuln = 0;
+    this.invuln = 1.2; // spawn protection: drops in blinking, can't be spawn-camped
     this.respawnTimer = 1;
   }
 

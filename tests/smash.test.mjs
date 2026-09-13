@@ -5,7 +5,7 @@ import {
 } from '../src/game/smash/SmashStage.js';
 import { ELISEO_MOVES, ELISEO_POSES } from '../src/game/smash/Eliseo.js';
 import { ANDY_POSES } from '../src/game/smash/AndyFighter.js';
-import { MOVES as ANDY_MOVES, SHIELD, shieldstun, chargeBonus } from '../src/game/smash/Moveset.js';
+import { MOVES as ANDY_MOVES, SHIELD, shieldstun, chargeBonus, hitstopFor, shakeFor, KO_HITSTOP } from '../src/game/smash/Moveset.js';
 
 // Full melee-inspired kit both fighters must answer to.
 const KIT = ['jab', 'ftilt', 'utilt', 'dtilt', 'windup', 'fsmash', 'usmash', 'dsmash',
@@ -130,6 +130,21 @@ test('boxesOverlap detects touches and misses', () => {
   const a = { x: 0, y: 0, w: 10, h: 10 };
   assert.equal(boxesOverlap(a, { x: 5, y: 5, w: 10, h: 10 }), true);
   assert.equal(boxesOverlap(a, { x: 11, y: 0, w: 10, h: 10 }), false);
+});
+
+test('hitstop scales: jab < tilt < charged smash, KO longest', () => {
+  const jab = hitstopFor(ANDY_MOVES.jab, 0);
+  const tilt = hitstopFor(ANDY_MOVES.ftilt, 0);
+  const smash = hitstopFor(ANDY_MOVES.fsmash, 0);
+  const charged = hitstopFor(ANDY_MOVES.fsmash, 1.1);
+  assert.ok(jab < tilt && tilt < smash && smash < charged);
+  assert.ok(charged <= 0.14 && KO_HITSTOP > charged);
+  assert.equal(hitstopFor(ANDY_MOVES.fsmash, 99), hitstopFor(ANDY_MOVES.fsmash, 1.1));
+});
+
+test('shake grows with damage and caps', () => {
+  assert.ok(shakeFor(20) > shakeFor(4));
+  assert.equal(shakeFor(999), shakeFor(100));
 });
 
 test('blast zones trigger only past the margin', () => {

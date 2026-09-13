@@ -123,6 +123,7 @@ export class NightFighter extends AndyFighter {
     this.y = stage.platform.y - this.renderHeight / 2;
     this.respawnTimer = .65;
     this.invulnerable = 1.8;
+    this.invuln = 0; // Cousins dodge timer unused here; keep it cleared.
     this.dashTimer = 0;
     this.onGround = true;
     this.jumpsLeft = 2;

@@ -35,6 +35,24 @@ export function shieldstun(damage) {
   return ((damage * 0.45 + 2) * (200 / 201)) / 60;
 }
 
+// Game-feel freeze on connect (melee-style hitstop), in seconds. Smashes and
+// full charges freeze longest so KOs read clearly.
+export function hitstopFor(move = {}, charge = 0) {
+  if (move.spawn) return 0.02;
+  if (move.chargeable) {
+    return Math.min(0.14, 0.07 + Math.max(0, Math.min(1.1, charge)) * 0.05);
+  }
+  if ((move.damage ?? 0) >= 6) return 0.045;
+  return 0.03;
+}
+
+export const KO_HITSTOP = 0.3;
+
+// Screen-shake magnitude in pixels for a hit dealing `damage` percent.
+export function shakeFor(damage = 0) {
+  return Math.min(16, 4 + damage * 0.6);
+}
+
 // Charge bonus: 0..1.1s held. Damage +10 per second held, base KB +280/s.
 export function chargeBonus(charge = 0) {
   const c = Math.max(0, Math.min(1.1, charge));

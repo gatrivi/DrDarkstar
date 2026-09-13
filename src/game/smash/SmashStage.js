@@ -5,7 +5,7 @@ import { Retriever } from './Retriever.js';
 import { SnakeSummon } from './SnakeSummon.js';
 import { CollisionRain } from '../../effects/CollisionRain.js';
 import { SmashSfx } from './Sfx.js';
-import { SHIELD, chargeBonus, shieldstun } from './Moveset.js';
+import { SHIELD, chargeBonus, shieldstun, hitstopFor, shakeFor, KO_HITSTOP } from './Moveset.js';
 
 // Pure helpers (unit-tested in tests/smash.test.mjs)
 export function knockback(percent, base, scaling, vegan = false) {
@@ -51,6 +51,9 @@ export class SmashStage {
     this.koFlashes = []; // { x, y, time }
     this.popups = [];    // { x, y, text, color, time }
     this.ghosts = [];    // roll afterimages { x, y, facing, frame, w, h, time, tint }
+    this.hitstop = 0;    // freeze frames on connect (game feel)
+    this.shake = 0;      // screen-shake pixels, decays fast
+    this.debug = false;  // H toggles hurtbox/hitbox overlay for testing
     this.time = 0;
     this.ai = { timer: 0, plan: 'chase', shieldT: 0, chargeT: 0 };
 
@@ -258,6 +261,7 @@ export class SmashStage {
       attacker.vx = -dir * push * 0.35;
       target.blockFlash = 0.18;
       this.sfx.play('shieldHit');
+      this.shake = Math.max(this.shake, 3);
       this.koFlashes.push({ x: target.x + dir * -10, y: target.y - 20, time: 0, kind: 'block' });
       if (target.shieldHP <= 0) {
         target.shielding = false;
@@ -286,6 +290,8 @@ export class SmashStage {
     target.onGround = false;
     target.lastMoveTime = 9;
     this.sfx.play('hit');
+    this.hitstop = Math.max(this.hitstop, hitstopFor(move, charge));
+    this.shake = Math.max(this.shake, shakeFor(damage));
     this.koFlashes.push({ x: target.x, y: target.y - target.renderHeight * 0.2, time: 0, kind: 'hit' });
     const label = move.label || attacker.action?.name || 'HIT';
     const short = label.split('—')[0].split('(')[0].trim().toUpperCase().slice(0, 14);
@@ -295,6 +301,13 @@ export class SmashStage {
 
   update(delta, audioLevels) {
     this.time += delta;
+    this.shake = Math.max(0, this.shake - delta * 60);
+    // Hitstop: fighters freeze on connect while sparks, popups and rain play on.
+    if (this.hitstop > 0) {
+      this.hitstop -= delta;
+      this.updateFx(delta, audioLevels);
+      return;
+    }
     // Couch join: any P2 attack key drops a second human in.
     if (this.mode === 'cpu' && this.input) {
       const join = ['Comma', 'Period', 'Slash', 'Numpad1', 'Numpad2', 'Numpad3', 'ShiftRight', 'Numpad0']
@@ -425,13 +438,22 @@ export class SmashStage {
         f.stocks -= 1;
         this.koFlashes.push({ x: Math.max(20, Math.min(this.width - 20, f.x)), y: Math.max(20, Math.min(this.height - 20, f.y)), time: 0, kind: 'ko' });
         this.sfx.play('ko');
+        this.hitstop = Math.max(this.hitstop, KO_HITSTOP);
+        this.shake = Math.max(this.shake, 18);
         f.respawn(this);
       }
     }
+    this.updateFx(delta, audioLevels);
+  }
+
+  // Sparks, popups, ghosts and rain keep animating during hitstop.
+  updateFx(delta, audioLevels) {
     for (const flash of this.koFlashes) flash.time += delta;
     this.koFlashes = this.koFlashes.filter(f => f.time < 0.6);
     for (const pop of this.popups) pop.time += delta;
     this.popups = this.popups.filter(p => p.time < 0.9);
+    for (const g of this.ghosts) g.time += delta;
+    this.ghosts = this.ghosts.filter(g => g.time < 0.25);
 
     this.ambientRain.update(delta, audioLevels);
     for (const rain of this.rains) rain.update(delta, audioLevels);
@@ -568,6 +590,10 @@ export class SmashStage {
     ctx.translate(this.width / 2, this.height / 2);
     ctx.scale(this.cam.zoom, this.cam.zoom);
     ctx.translate(-this.cam.x, -this.cam.y);
+    // Impact shake: a dying random offset so smashes thump the camera.
+    if (this.shake > 0.2) {
+      ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
+    }
     this.ambientRain.draw(ctx);
 
     // Floating battlefield: chunky slab with a lit top surface and stepped underside.
@@ -602,11 +628,11 @@ export class SmashStage {
     }
 
     // The fighters: translucent pixel base with the rain forming their body.
-    // Invulnerable dodgers blink.
+    // Intangible fighters (dodges, spawn protection) blink.
     for (const f of [this.andy, this.dummy]) {
       if (f.respawnTimer > 0) continue;
       ctx.save();
-      const blink = (f.invuln > 0 && f.action) ? (Math.floor(this.time * 24) % 2 === 0 ? 0.25 : 0.6) : 0.5;
+      const blink = (f.invuln > 0) ? (Math.floor(this.time * 24) % 2 === 0 ? 0.25 : 0.6) : 0.5;
       ctx.globalAlpha = blink;
       f.draw(ctx);
       ctx.restore();
@@ -712,6 +738,36 @@ export class SmashStage {
       ctx.restore();
     }
     ctx.textAlign = 'left';
+
+    // Testing overlay (H): hurtboxes green, live hitboxes red, shield radius blue.
+    if (this.debug) {
+      for (const f of [this.andy, this.dummy]) {
+        if (f.respawnTimer > 0) continue;
+        const hurt = f.hurtbox;
+        ctx.save();
+        ctx.globalAlpha = 0.9;
+        ctx.strokeStyle = '#7de08a';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(hurt.x, hurt.y, hurt.w, hurt.h);
+        if (typeof f.hitboxes === 'function') {
+          ctx.fillStyle = 'rgba(255, 70, 70, 0.45)';
+          for (const box of f.hitboxes()) ctx.fillRect(box.x, box.y, box.w, box.h);
+        }
+        if (f.shielding) {
+          ctx.strokeStyle = '#49bcd3';
+          ctx.beginPath();
+          ctx.arc(f.x, f.y - 6, f.renderHeight * 0.55, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+        ctx.font = '11px monospace';
+        ctx.fillStyle = '#8aa7b5';
+        ctx.textAlign = 'center';
+        const state = f.action ? `${f.action.name} ${f.action.time.toFixed(2)}s` : f.shielding ? 'shield' : f.hitstun > 0 ? 'hitstun' : 'free';
+        ctx.fillText(`${f.name} ${state} i:${(f.invuln ?? 0).toFixed(2)}`, f.x, f.y + f.renderHeight / 2 + 16);
+        ctx.textAlign = 'left';
+        ctx.restore();
+      }
+    }
 
     ctx.restore();
     this.drawHud(ctx);

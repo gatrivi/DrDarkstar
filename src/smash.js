@@ -10,11 +10,17 @@ const status = document.querySelector('#status');
 let width = innerWidth, height = innerHeight;
 const sound = new AudioField(document.querySelector('#audio'));
 sound.enable().catch(() => {});
+// Autoplay policies suspend audio until a gesture: unlock on first input.
+const unlock = () => sound.enable().catch(() => {});
+addEventListener('keydown', unlock);
+addEventListener('pointerdown', unlock);
 
 let player = 'andy';
+let paused = false;
 let stage = new SmashStage({ input, width, height, sound, player });
 const swapButton = document.querySelector('#swap');
 const modeButton = document.querySelector('#mode');
+const musicButton = document.querySelector('#music');
 function modeLabel() {
   return stage.mode === 'versus' ? 'Mode · T (VERSUS P1 vs P2)' : 'Mode · T (P1 vs CPU)';
 }
@@ -53,6 +59,18 @@ modeButton.onclick = () => {
   modeButton.textContent = modeLabel();
   status.textContent = versusStatus();
 };
+function musicLabel() {
+  return sound.demoTimer !== null ? 'Music · M (on)' : 'Music · M (off)';
+}
+async function toggleMusic() {
+  try {
+    await sound.enable();
+    if (sound.demoTimer !== null) sound.stopDemo();
+    else await sound.startDemo();
+  } catch { /* audio is decorative */ }
+  musicButton.textContent = musicLabel();
+}
+musicButton.onclick = toggleMusic;
 
 function resize() {
   width = innerWidth; height = innerHeight;
@@ -78,21 +96,43 @@ new GameLoop({
     if (input.consume('Escape')) { location.href = './games.html'; return; }
     if (input.consume('KeyC')) swapButton.click();
     if (input.consume('KeyT')) modeButton.click();
-    stage.update(delta, sound.update(delta));
-    if (modeButton.textContent !== modeLabel()) modeButton.textContent = modeLabel();
-    if (stage.dummy.stocks <= 0 || stage.andy.stocks <= 0) {
-      const winner = stage.andy.stocks > 0
-        ? (stage.mode === 'versus' ? `P1 · ${stage.andy.name}` : stage.andy.name)
-        : (stage.mode === 'versus' ? `P2 · ${stage.dummy.name}` : stage.dummy.name);
-      status.textContent = `${winner} WINS! — press Reset match for a rematch`;
-    } else if (status.textContent.startsWith('Rematch')) {
-      status.textContent = versusStatus();
-    } else if (status.textContent.includes('WINS')) {
-      status.textContent = versusStatus();
+    if (input.consume('KeyM')) toggleMusic();
+    if (input.consume('KeyH')) stage.debug = !stage.debug;
+    if (input.consume('KeyR')) {
+      for (const f of [stage.andy, stage.dummy]) f.percent = 0;
+      stage.popup(stage.width / 2, stage.height * 0.3, 'DAMAGE RESET', '#9adcff');
+    }
+    if (input.consume('KeyP')) paused = !paused;
+    if (!paused) {
+      stage.update(delta, sound.update(delta));
+      if (modeButton.textContent !== modeLabel()) modeButton.textContent = modeLabel();
+      if (stage.dummy.stocks <= 0 || stage.andy.stocks <= 0) {
+        const winner = stage.andy.stocks > 0
+          ? (stage.mode === 'versus' ? `P1 · ${stage.andy.name}` : stage.andy.name)
+          : (stage.mode === 'versus' ? `P2 · ${stage.dummy.name}` : stage.dummy.name);
+        status.textContent = `${winner} WINS! — press Reset match for a rematch`;
+      } else if (status.textContent.startsWith('Rematch')) {
+        status.textContent = versusStatus();
+      } else if (status.textContent.includes('WINS')) {
+        status.textContent = versusStatus();
+      }
     }
     input.endFrame();
   },
   render(delta) {
     stage.render(ctx, delta);
+    if (paused) {
+      ctx.save();
+      ctx.fillStyle = 'rgba(2, 4, 10, 0.6)';
+      ctx.fillRect(0, 0, width, height);
+      ctx.fillStyle = '#eafcff';
+      ctx.font = 'bold 34px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('PAUSED', width / 2, height / 2 - 10);
+      ctx.font = '14px monospace';
+      ctx.fillStyle = '#8aa7b5';
+      ctx.fillText('P to resume · H hitboxes · R reset damage · M music', width / 2, height / 2 + 22);
+      ctx.restore();
+    }
   },
 }).start();
