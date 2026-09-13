@@ -1,6 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { NIGHT_MOVES, hitTarget, blockHit, projectileSweep, overlaps } from '../src/game/night/Combat.js';
+import {
+  NIGHT_MOVES, hitTarget, blockHit, projectileSweep, overlaps,
+  SCORE, scoreForHit, scoreForKO, comboMult, BOUNTIES, bountyIdValid,
+  bountyPayout, boardRank, boardInsert, decodeChallenge, encodeChallenge,
+} from '../src/game/night/Combat.js';
 import { NightFighter } from '../src/game/night/NightFighter.js';
 
 const attacker = { team: 'hunter', facing: 1 };
@@ -58,4 +62,48 @@ test('guard breaks when depleted and cannot block again during recovery', () => 
   assert.equal(defender.guard,0);assert.equal(defender.action,null);
   assert.ok(defender.guardBroken>0 && defender.hitstun>0);
   assert.equal(blockHit({...attacker,facing:-1},defender,NIGHT_MOVES.claw),false);
+});
+
+test('hits score damage times ten, KOs pay by species plus charged bonus', () => {
+  assert.equal(scoreForHit(14), 140);
+  assert.equal(scoreForHit(0), 0);
+  assert.ok(scoreForKO('replicant') > scoreForKO('vampire'));
+  assert.equal(scoreForKO('vampire', true) - scoreForKO('vampire'), SCORE.chargedKoBonus);
+});
+
+test('combo multiplier climbs every two hits and caps at five', () => {
+  assert.deepEqual([0, 1, 2, 3, 4, 7, 8, 99].map(comboMult), [1, 1, 2, 2, 3, 4, 5, 5]);
+});
+
+test('bounty table has three valid specialties with honest payouts', () => {
+  assert.equal(BOUNTIES.length, 3);
+  for (const b of BOUNTIES) assert.ok(bountyIdValid(b.id));
+  assert.equal(bountyIdValid('nope'), false);
+  assert.equal(bountyPayout('nightowl', { projKOs: 4 }), 4 * SCORE.nightOwlPerKo);
+  assert.equal(bountyPayout('untouchable', { wave2Damage: 0 }), SCORE.untouchableBonus);
+  assert.equal(bountyPayout('untouchable', { wave2Damage: 3 }), 0);
+  assert.equal(bountyPayout('speedtrap', { wave2Time: 41 }), SCORE.speedTrapBonus);
+  assert.equal(bountyPayout('speedtrap', { wave2Time: 90 }), 0);
+  assert.equal(bountyPayout('bogus', {}), 0);
+});
+
+test('best board ranks and keeps the top five shared runs', () => {
+  const board = [{ score: 9000 }, { score: 4000 }];
+  assert.equal(boardRank(board, 9500), 0);
+  assert.equal(boardRank(board, 5000), 1);
+  assert.equal(boardRank(board, 100), 2);
+  const full = boardInsert([{ score: 1 }, { score: 2 }, { score: 3 }, { score: 4 }, { score: 5 }], { score: 0 });
+  assert.equal(full.length, 5);
+  assert.ok(!full.some((e) => e.score === 0));
+  assert.equal(boardInsert([], { score: 777 })[0].score, 777);
+});
+
+test('challenge links round-trip and reject garbage', () => {
+  const code = encodeChallenge(15000, 'PRIMO');
+  const back = decodeChallenge(code);
+  assert.equal(back.target, 15000);
+  assert.equal(back.label, 'PRIMO');
+  assert.equal(decodeChallenge(null), null);
+  assert.equal(decodeChallenge('!!!not-base64!!!'), null);
+  assert.equal(decodeChallenge(encodeChallenge(-5)), null);
 });

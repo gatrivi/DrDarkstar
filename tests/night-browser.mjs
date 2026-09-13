@@ -140,7 +140,13 @@ try {
         }
         check(target.dead,`primary fire defeats ${target.kind} in wave ${wave+1}`);
       }
-      if(wave===0){tick(75);check(stage.wave===2 && stage.enemies.every(e=>!e.dead),'second wave spawns after first clear');}
+      if(wave===0){
+        tick(5);
+        check(stage.state==='bounty' && !document.querySelector('#bounty-choose').hidden,'clearing wave one opens the bounty pick');
+        check(stage.stats.score>0,'hits bank score before the bounty');
+        document.querySelector('#bounty-choose [data-bounty="nightowl"]').click();tick(5);
+        check(stage.wave===2 && stage.state==='playing' && stage.stats.bounty==='nightowl' && stage.enemies.every(e=>!e.dead),'bounty pick reloads wave two');
+      }
     }
     check(stage.state==='won' && stage.stats.kills===6 && !document.querySelector('#overlay').hidden,'six eliminations finish the mission');
     document.querySelector('#start').click();loop.stop();stage.driveEnemy=()=>{};

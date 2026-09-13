@@ -53,3 +53,95 @@ export function hitTarget(attacker, target, move, charge = 0, direction = attack
 export function projectileSweep(projectile, nextX) {
   return { x: Math.min(projectile.x, nextX) - 4, y: projectile.y - 4, w: Math.abs(nextX - projectile.x) + 8, h: 8 };
 }
+
+// Demolition-style run economy (pure; unit-tested). Hunters earn for every
+// landed hit, more for KOs, multiplied by combo and frenzy. Bounties pay at
+// mission end for a chosen specialty.
+export const SCORE = {
+  hitPoint: 10,            // per damage percent dealt
+  koBonus: { vampire: 250, replicant: 350 },
+  chargedKoBonus: 150,     // killing blow was a charged (charge > 0.3) hit
+  doubleKoBonus: 500,      // two KOs within DOUBLE_WINDOW
+  doubleWindow: 3,
+  superJackpotBonus: 1000, // KO during frenzy at max combo
+  flawlessWaveBonus: 750,  // cleared a wave taking no damage
+  demolitionBonus: 2000,   // cleared both waves without losing a life
+  comboWindow: 2.5,        // seconds between hits to keep the streak
+  comboCap: 5,             // combo multiplier caps at x5
+  frenzyKills: 3,          // KOs inside frenzyWindow trigger HUNT FRENZY
+  frenzyWindow: 8,
+  frenzyTime: 10,
+  frenzyMult: 2,
+  speedTrapTime: 60,       // SPEED TRAP bounty: clear wave 2 faster than this
+  speedTrapBonus: 1000,
+  untouchableBonus: 1500,  // UNTOUCHABLE bounty: wave 2 with no damage taken
+  nightOwlPerKo: 150,      // NIGHT OWL bounty: per projectile KO
+};
+
+export function scoreForHit(damage) {
+  return Math.max(0, Math.round(damage * SCORE.hitPoint));
+}
+
+export function scoreForKO(kind, charged = false) {
+  return (SCORE.koBonus[kind] ?? 200) + (charged ? SCORE.chargedKoBonus : 0);
+}
+
+// Combo multiplier from the current streak: x1 under 2 hits, +1 every 2.
+export function comboMult(streak) {
+  return Math.min(SCORE.comboCap, 1 + Math.floor(Math.max(0, streak) / 2));
+}
+
+export const BOUNTIES = [
+  { id: 'nightowl', name: 'NIGHT OWL', desc: '+150 per shuriken / bolt KO' },
+  { id: 'untouchable', name: 'UNTOUCHABLE', desc: 'Wave 2, no damage: +1,500' },
+  { id: 'speedtrap', name: 'SPEED TRAP', desc: 'Clear wave 2 under 60s: +1,000' },
+];
+
+export function bountyIdValid(id) {
+  return BOUNTIES.some((b) => b.id === id);
+}
+
+// Bounty payout at mission end. ctx: { projKOs, wave2Time, wave2Damage }.
+export function bountyPayout(id, ctx = {}) {
+  const { projKOs = 0, wave2Time = Infinity, wave2Damage = Infinity } = ctx;
+  if (id === 'nightowl') return Math.max(0, projKOs) * SCORE.nightOwlPerKo;
+  if (id === 'untouchable') return wave2Damage <= 0 ? SCORE.untouchableBonus : 0;
+  if (id === 'speedtrap') return wave2Time < SCORE.speedTrapTime ? SCORE.speedTrapBonus : 0;
+  return 0;
+}
+
+// Best-board helpers (localStorage JSON: [{score,hunter,won,date}]).
+export function boardRank(board, score) {
+  return board.filter((e) => e.score > score).length;
+}
+
+export function boardInsert(board, entry, cap = 5) {
+  return [...board, entry].sort((a, b) => b.score - a.score).slice(0, cap);
+}
+
+// Challenge links: ?challenge=<base64url JSON {target, label?>.
+// Uses only universal base64 (btoa/atob exist in browsers and Node).
+function b64urlEncode(text) {
+  const bin = unescape(encodeURIComponent(text));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+function b64urlDecode(raw) {
+  const padded = String(raw).replace(/-/g, '+').replace(/_/g, '/');
+  return decodeURIComponent(escape(atob(padded)));
+}
+
+export function decodeChallenge(raw) {
+  if (!raw) return null;
+  try {
+    const json = JSON.parse(b64urlDecode(raw));
+    if (json && Number.isFinite(json.target) && json.target > 0) {
+      return { target: Math.floor(json.target), label: String(json.label || 'RIVAL HUNT').slice(0, 24) };
+    }
+  } catch { /* malformed challenge: ignore */ }
+  return null;
+}
+
+export function encodeChallenge(target, label = '') {
+  return b64urlEncode(JSON.stringify({ target: Math.floor(target), label: String(label).slice(0, 24) }));
+}
