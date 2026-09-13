@@ -13,7 +13,7 @@ try {
 } catch { stage.challenge = null; }
 const $ = selector => document.querySelector(selector);
 const overlay = $('#overlay'), start = $('#start'), status = $('#status');
-let soundOn = false, soundChosen = false, nextPad = 0, lastUI = '';
+let soundOn = false, soundChosen = false, lastUI = '';
 function clearInput() { input.down.clear(); input.pressed.clear(); }
 function focusGame() { canvas.focus({ preventScroll: true }); }
 async function enableSound() {
@@ -38,7 +38,7 @@ function pause() {
 }
 function updateUI(force = false) {
   if (!stage.player) return;
-  const p = stage.player, signature = [stage.state,p.kind,Math.round(p.percent),p.stocks,stage.stats.kills,stage.stats.score,stage.wave,stage.worldRainEnabled,soundOn,stage.stats.bounty,stage.lastSummary?.score ?? ''].join(':');
+  const p = stage.player, signature = [stage.state,p.kind,Math.round(p.percent),p.stocks,stage.stats.kills,stage.stats.score,stage.wave,stage.worldRainEnabled,soundOn,stage.stats.bounty,stage.layout,stage.lastSummary?.score ?? ''].join(':');
   if (!force && signature === lastUI) return;
   lastUI = signature;
   $('#hunter-name').textContent = p.name;
@@ -52,6 +52,8 @@ function updateUI(force = false) {
   $('#score').textContent = stage.stats.score.toLocaleString('en-US');
   document.querySelectorAll('[data-hunter]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.hunter===p.kind)));
   $('#particles').setAttribute('aria-pressed',String(stage.worldRainEnabled));
+  $('#layout').setAttribute('aria-pressed',String(stage.layout==='rooftops'));
+  $('#layout').textContent = stage.layout==='rooftops' ? 'STREET' : 'ROOFTOPS';
   $('#sound').setAttribute('aria-pressed',String(soundOn)); $('#sound').textContent=soundOn?'SOUND ON':'SOUND OFF';
   $('#pause').disabled = !['playing','paused'].includes(stage.state);
   $('#pause').textContent = stage.state === 'paused' ? 'RESUME' : 'PAUSE';
@@ -130,6 +132,10 @@ $('#particles').onclick = () => {
   stage.rains.forEach(rain=>{rain.drops=rain.drops.map(()=>rain.makeDrop(true));});
   updateUI(true);focusGame();
 };
+$('#layout').onclick = () => {
+  stage.setLayout(stage.layout==='rooftops' ? 'street' : 'rooftops');
+  updateUI(true);focusGame();
+};
 $('#sound').onclick = async () => {
   soundChosen = true;
   if(soundOn){soundOn=false;sound.mix.gain.value=0;updateUI(true);}else await enableSound();
@@ -151,21 +157,68 @@ document.querySelectorAll('[data-key]').forEach(button=>{
 addEventListener('blur',()=>{if(stage.state==='playing'){stage.state='paused';clearInput();updateUI(true);}});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&stage.state==='playing'){stage.state='paused';clearInput();updateUI(true);}});
 
+// ---------------------------------------------------------------------------
+// 16-bit night drive: a minor-key synth arp over a Genesis bass, half-time
+// kick. Generations Lost mood, Blade Runner harmony, 1994 hardware manners.
+// Steps are 16ths at 116 BPM; the scheduler looks ~0.18s ahead and hands
+// absolute start times to AudioField.tone so rhythm survives rAF jitter.
+// ---------------------------------------------------------------------------
+const CHIP_BPM = 116;
+const CHIP_STEP = 60 / CHIP_BPM / 4;
+const CHIP_BASS = [0, 0, 3, 7, -2, -2, -4, 3];       // semitones from A1, one per quarter
+const CHIP_ARP = [12, 15, 19, 15];                    // minor-triad shape over the bass note
+const CHIP_LEAD = [{ step: 0, note: 24 }, { step: 10, note: 27 },
+  { step: 16, note: 22 }, { step: 26, note: 19 }, { step: 30, note: 24 }];
+const chipHz = (n) => 55 * Math.pow(2, n / 12);       // n=0 -> A1
+let chipStep = 0, chipNext = 0;
+function chipPump() {
+  const ctx = sound.context;
+  if (!ctx || !soundOn || stage.state !== 'playing') { chipNext = 0; return; }
+  const t = ctx.currentTime;
+  if (!chipNext || chipNext < t - 0.4) chipNext = t + 0.06;
+  while (chipNext < t + 0.18) {
+    chipPlay(chipStep, chipNext);
+    chipStep = (chipStep + 1) % 32;
+    chipNext += CHIP_STEP;
+  }
+}
+function chipPlay(step, when) {
+  const bar = Math.floor(step / 4) % 8;
+  const bass = CHIP_BASS[bar];
+  // Bass: fat detuned saw on every quarter.
+  if (step % 4 === 0) {
+    sound.tone(chipHz(bass), .34, .034, sound.music, 'sawtooth', chipHz(bass) * .998, when);
+    sound.tone(chipHz(bass) * 2.008, .3, .012, sound.music, 'sawtooth', chipHz(bass) * 2, when);
+  }
+  // Arp: quiet square 16ths.
+  const arp = bass + CHIP_ARP[step % 4];
+  sound.tone(chipHz(arp), .1, .013, sound.music, 'square', chipHz(arp), when);
+  // Kick on the floor, snare-ish tick on the backbeat.
+  if (step % 8 === 0) sound.tone(110, .12, .05, sound.music, 'sine', 42, when);
+  if (step % 8 === 4) sound.tone(190, .06, .022, sound.music, 'square', 150, when);
+  // Hat ticks every off-8th.
+  if (step % 2 === 1) sound.tone(6400, .02, .006, sound.music, 'square', 5200, when);
+  // Lead: sparse long notes with a soft detune.
+  const lead = CHIP_LEAD.find((l) => l.step === step);
+  if (lead) {
+    sound.tone(chipHz(lead.note), .5, .018, sound.music, 'triangle', chipHz(lead.note) * .997, when);
+    sound.tone(chipHz(lead.note) * 1.004, .5, .01, sound.music, 'triangle', chipHz(lead.note), when + .02);
+  }
+}
+
 export const loop = new GameLoop({
   update(delta) {
     if(input.consume('Escape')){location.href='./games.html';return;}
     if(input.consume('KeyP'))pause();
     if(input.consume('KeyC'))stage.swap();
+    if(input.consume('KeyT')){$('#layout').click();}
     if(stage.state==='bounty'){
       for(const [code,id] of [['Digit1','nightowl'],['Digit2','untouchable'],['Digit3','speedtrap']]){
         if(input.consume(code)&&stage.setBounty(id)){clearInput();focusGame();updateUI(true);break;}
       }
     } else if(stage.state!=='playing' && (input.consume('Enter') || input.consume('Space')))begin();
     const levels = sound.update(delta);
-    if(soundOn && stage.state==='playing' && sound.context?.currentTime >= nextPad){
-      nextPad=sound.context.currentTime+3.8;
-      [55,82.4,110,130.81].forEach((hz,i)=>sound.tone(hz,4.2,.027/(1+i*.3),sound.music,'triangle',hz*.998));
-    }
+    chipPump();
     stage.update(delta, levels);
     updateUI();input.endFrame();
   },

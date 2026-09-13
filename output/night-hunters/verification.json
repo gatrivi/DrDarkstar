@@ -10,6 +10,13 @@
     "releasing K starts the heavy attack",
     "charged sword connects",
     "one swing cannot repeatedly damage the same target",
+    "holding S crouches on the ground",
+    "crouched hunter ducks under the standing chest line",
+    "angled bolt at chest height misses the duck",
+    "rooftop layout activates",
+    "hunter lands on a rooftop ledge",
+    "jumping up through the ledge is not blocked",
+    "street layout clears ledges",
     "Blade primary is a melee sword hit",
     "rain samples actual character pixels",
     "throw starts with the shuriken windup sprite",
@@ -40,7 +47,9 @@
     "primary fire defeats vampire in wave 1",
     "primary fire defeats replicant in wave 1",
     "primary fire defeats vampire in wave 1",
-    "second wave spawns after first clear",
+    "clearing wave one opens the bounty pick",
+    "hits bank score before the bounty",
+    "bounty pick reloads wave two",
     "primary fire defeats replicant in wave 2",
     "primary fire defeats vampire in wave 2",
     "primary fire defeats replicant in wave 2",
@@ -50,5 +59,5 @@
     "retry screen can select a different hunter",
     "retry is playable"
   ],
-  "rainHits": 1490
+  "rainHits": 1390
 }

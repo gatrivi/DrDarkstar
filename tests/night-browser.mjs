@@ -66,6 +66,31 @@ try {
     enemy.x=stage.player.x+70;enemy.vx=0;enemy.invulnerable=0;tick(4);
     check(enemy.percent===damage,'one swing cannot repeatedly damage the same target');
 
+    // Duck under a bolt: hold S, the crouched hurtbox drops below the bolt line.
+    reset();enemy=stage.enemies[0];enemy.x=stage.player.x+260;enemy.facing=-1;
+    key('KeyS');tick(3);
+    check(stage.player.crouching===true,'holding S crouches on the ground');
+    const standTop=stage.player.feet-99,duckTop=stage.player.feet-57;
+    check(duckTop>standTop,'crouched hunter ducks under the standing chest line');
+    const boltY=standTop+20;
+    stage.projectiles.push({x:enemy.x,y:boltY,vx:-330,vy:0,owner:enemy,direction:-1,
+      move:NIGHT_MOVES.enemyShot,charge:0,kind:'bolt',angle:0,cos:1,sin:0,life:1.2,color:'#ff727b'});
+    tick(30);
+    check(stage.player.percent===0,'angled bolt at chest height misses the duck');key('KeyS',false);
+
+    // Rooftop demo: toggling the layout and landing on a one-way ledge.
+    reset();stage.setLayout('rooftops');
+    check(stage.layout==='rooftops' && stage.ledges.length>=4,'rooftop layout activates');
+    const ledge=stage.ledges.find(l=>l.y===366);
+    stage.player.x=(ledge.x0+ledge.x1)/2;stage.player.y=ledge.y-stage.player.renderHeight/2-120;
+    stage.player.vx=0;stage.player.vy=0;stage.player.onGround=false;tick(40);
+    check(stage.player.onGround && Math.abs(stage.player.feet-ledge.y)<1,'hunter lands on a rooftop ledge');
+    // Jumping from below passes through the one-way slab.
+    stage.player.y=ledge.y+80;stage.player.vy=-700;stage.player.onGround=false;tick(2);
+    check(stage.player.y<ledge.y+80,'jumping up through the ledge is not blocked');
+    stage.setLayout('street');
+    check(stage.layout==='street' && stage.ledges.length===0,'street layout clears ledges');
+
     reset();enemy=stage.enemies[0];enemy.x=stage.player.x+65;
     key('KeyJ');tick(12);key('KeyJ',false);
     check(enemy.percent===15,'Blade primary is a melee sword hit');

@@ -8,9 +8,38 @@ button,a{-webkit-tap-highlight-color:transparent}button{font:inherit;cursor:poin
 .viewport{position:relative;overflow:hidden;background:#050911;aspect-ratio:8/5}canvas{display:block;width:100%;height:100%;image-rendering:pixelated;outline:none;touch-action:none}.scanlines{pointer-events:none;position:absolute;inset:0;background:repeating-linear-gradient(transparent 0,transparent 3px,#0002 3px,#0002 4px);opacity:.28}
 .overlay{position:absolute;inset:0;display:grid;place-items:center;padding:20px;background:linear-gradient(90deg,#030b16ec,#030b1670 75%,#030b1655);backdrop-filter:blur(1px)}.overlay[hidden]{display:none}.briefing{width:min(450px,100%);text-align:left}.eyebrow{color:#eb9c88;font-size:10px;letter-spacing:3px;margin:0 0 18px}.briefing h2{font:normal clamp(23px,3.2vw,40px)/1.13 'Courier New',monospace;letter-spacing:-1.5px;color:#e4f4f4;margin:0 0 15px}.briefing>p:not(.eyebrow){font-size:12px;line-height:1.7;color:#8eaab6}.choose{display:flex;gap:9px;margin:23px 0 14px}.choose button{flex:1;text-align:left;padding:14px 10px;border:1px solid #36505d;background:#0c1824b5}.choose strong{display:block;font-size:13px;letter-spacing:2px}.choose span{display:block;font-size:8px;color:#859ca8;line-height:1.5;margin-top:7px}.choose button[aria-pressed=true]{border-color:#d78186;background:#632b3638}.choose button[aria-pressed=true] strong{color:#f3b1ac}.enter{width:100%;padding:14px;border:1px solid #b4d0d7;background:#c7e1e5;color:#10222b;font-size:11px;font-weight:bold;letter-spacing:2px}.enter:hover{background:#e7f7f8}.briefing .brief-help{font-size:10px!important;margin:14px 0 0;color:#7e99a6!important}.briefing .brief-help.touch-only{display:none}
 .toolbar{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 15px;border-top:1px solid #263843}.hunter-tabs,.toggles{display:flex;align-items:center;gap:7px}.toolbar button{background:transparent;border:1px solid #2a404f;font-size:9px;letter-spacing:.5px;padding:8px 10px}.toolbar button:hover{border-color:#9ab7c1}.hunter-tabs button[aria-pressed=true]{color:#eec5bc;border-color:#9a6265;background:#3c232b}.hunter-tabs>span{font-size:8px;letter-spacing:.5px;color:#4e6f80;margin-left:5px}.toggles button{color:#7596a6;font-size:8px;border-color:transparent;padding:8px 6px}.toggles button[aria-pressed=true]{color:#b7d2d8}.toggles button[aria-pressed=true]:before{content:'• ';color:#82c6cc}.share-row{display:flex;gap:9px;margin:14px 0 0}.share-row button{flex:1;padding:10px;border:1px solid #36505d;background:#0c1824b5;font-size:10px;letter-spacing:2px}.share-row button:hover{border-color:#9ab7c1}#score{font-size:19px!important}
-footer{text-align:center}.keys{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 18px;font-size:10px;color:#718a98;margin:20px 0 14px}.keys span{white-space:nowrap}kbd{font:inherit;color:#c0d2da;background:#111c27;border:1px solid #253540;padding:3px 5px;margin-right:4px}#status{color:#a2bac5;font-size:11px;min-height:14px}.hint{font-size:9px;color:#526d7c;line-height:1.6}.touch-controls{display:none;justify-content:space-between;gap:12px;padding:16px 0}.touch-controls>div{display:flex;gap:6px}.touch-controls button{min-width:43px;min-height:46px;background:#101f2c;border:1px solid #344c5c;font-size:10px;touch-action:none;user-select:none}.touch-controls button:active{background:#455b68}
+footer{text-align:center}.keys{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 18px;font-size:10px;color:#718a98;margin:20px 0 14px}.keys span{white-space:nowrap}kbd{font:inherit;color:#c0d2da;background:#111c27;border:1px solid #253540;padding:3px 5px;margin-right:4px}#status{color:#a2bac5;font-size:11px;min-height:14px}.hint{font-size:9px;color:#526d7c;line-height:1.6}.touch-controls{display:none;justify-content:space-between;gap:12px;padding:16px 0}.touch-controls>div{display:flex;gap:6px;flex-wrap:wrap}.touch-controls button{min-width:43px;min-height:46px;background:#101f2c;border:1px solid #344c5c;font-size:10px;touch-action:none;user-select:none}.touch-controls button:active{background:#455b68}
 @media(max-height:800px){.briefing h2{font-size:25px;margin-bottom:9px}.briefing>p:not(.eyebrow){font-size:10px}.eyebrow{margin-bottom:10px}.choose{margin:12px 0}.choose button{padding:9px}.enter{padding:10px}.brief-help:not(.touch-only){display:none}.weather{display:none}.toolbar{flex-wrap:wrap;justify-content:center}.hunter-tabs>span{display:none}.keys{margin:14px 0 9px;gap:10px}.hint{margin:6px 0}.masthead{margin-bottom:16px}.identity h1{font-size:18px;letter-spacing:3px}}
 @media(max-width:850px){.night-app{width:100%;padding:16px 12px}.weather{display:none}.masthead{justify-content:flex-start}.identity{text-align:left;margin:auto}.identity h1{font-size:17px;letter-spacing:3px}.toolbar{flex-wrap:wrap;justify-content:center}.hunter-tabs>span{display:none}.keys{gap:10px}.touch-controls{display:flex}.briefing{width:min(410px,100%)}.briefing h2{font-size:27px}.briefing>p:not(.eyebrow){font-size:10px}.eyebrow{margin-bottom:10px}.choose{margin:12px 0}.choose button{padding:10px}.brief-help:not(.touch-only){display:none}.overlay{padding:18px}.enter{padding:10px}}
 @media(max-width:520px){.night-app{padding:12px 6px}.back{font-size:8px}.identity>span{font-size:8px;letter-spacing:2px}.identity h1{font-size:14px}.dashboard{padding:10px 12px;height:61px}.mission{gap:3px 8px}.mission>span{font-size:8px}.player-readout{grid-template-columns:84px 48px}.player-readout b{font-size:23px}.overlay{padding:10px 16px}.briefing h2{font-size:21px;margin:0 0 5px}.eyebrow{font-size:8px;margin-bottom:6px}.briefing>p:not(.eyebrow){font-size:9px;margin:5px 0}.choose{margin:8px 0}.choose button{padding:7px}.choose strong{font-size:10px}.choose span{font-size:7px;margin-top:4px}.enter{padding:8px;font-size:9px}.touch-controls{gap:4px}.touch-controls>div{gap:4px}.touch-controls button{min-width:36px;padding:6px;font-size:8px}.keys{gap:6px 10px;font-size:8px;margin:10px 0 6px}.keys kbd{display:none}.brief-help:not(.touch-only){display:none}.brief-help.touch-only{display:block}.toolbar{gap:4px;padding:8px}.toggles{gap:5px}}
 @media(pointer:coarse){.touch-controls{display:flex}.brief-help:not(.touch-only){display:none}.brief-help.touch-only{display:block}}
+/* Menus own the screen: hide the thumb pads while an overlay is up. */
+body:has(.overlay:not([hidden])) .touch-controls{display:none}
+/* Phone landscape: the game is the screen. Chrome hugs the edges; thumb
+   controls float over the lower canvas like an arcade cabinet overlay. */
+@media(orientation:landscape) and (max-height:560px){
+  .night-app{width:min(1180px,calc((100svh - 104px)*1.6 + 34px),100%);padding:6px 8px}
+  .masthead{display:none}
+  .dashboard{height:44px;padding:5px 12px}
+  .player-readout{grid-template-columns:92px 54px;grid-template-rows:19px 11px}
+  .player-readout b{font-size:21px}
+  .player-readout #lives{font-size:9px}
+  .mission{grid-template-columns:auto 55px;gap:1px 10px}
+  .mission>span{font-size:8px;white-space:nowrap}
+  .mission>b{font-size:19px}
+  .mission small{font-size:10px}
+  .toolbar{padding:5px 8px;flex-wrap:nowrap;gap:6px}
+  .toolbar button{padding:6px 7px;font-size:8px}
+  .hunter-tabs,.toggles{gap:4px}
+  .keys,.hint,footer,.brief-help{display:none}
+  .console{border:none;box-shadow:none}
+  .touch-controls{position:fixed;left:6px;right:6px;bottom:38px;z-index:9;
+    padding:0;gap:6px;align-items:flex-end;
+    background:none;pointer-events:none}
+  .touch-controls>div{flex-wrap:nowrap;gap:5px;pointer-events:auto}
+  .touch-controls button{min-width:46px;min-height:44px;font-size:8px;
+    background:#0b1622d9;border-color:#3d5a6ecc;box-shadow:0 4px 14px #000a}
+  .overlay{padding:12px}
+  .briefing h2{font-size:22px}
+}
 @media(prefers-reduced-motion:reduce){.scanlines{display:none}.overlay{backdrop-filter:none}}

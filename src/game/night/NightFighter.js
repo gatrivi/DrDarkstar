@@ -12,6 +12,7 @@ export class NightFighter extends AndyFighter {
     this.dead = false;
     this.deathTime = 0;
     this.guard = 100; this.guardBroken = 0; this.guardCooldown = 0; this.blockFlash = 0;
+    this.crouching = false; // hold Down on the ground: low profile, ducks bolts
     this.cooldown = 1.3 + Math.random() * .8;
     this.setKind(kind);
     this.y = ground - this.renderHeight / 2;
@@ -32,7 +33,23 @@ export class NightFighter extends AndyFighter {
 
   get feet() { return this.y + this.renderHeight / 2; }
   get hurtbox() {
+    if (this.crouching) {
+      // Ducked: bolts at head height whistle overhead.
+      return { x: this.x - 23, y: this.feet - 57, w: 46, h: 54 };
+    }
     return { x: this.x - 23, y: this.feet - 99, w: 46, h: 96 };
+  }
+
+  draw(ctx) {
+    if (!this.crouching) { super.draw(ctx); return; }
+    // Squashed duck, feet planted.
+    ctx.save();
+    ctx.translate(this.x, this.feet);
+    ctx.scale(this.facing * 1.12, 0.72);
+    ctx.drawImage(this.sheet,
+      this.frame * this.frameWidth, 0, this.frameWidth, this.frameHeight,
+      -this.renderWidth / 2, -this.renderHeight, this.renderWidth, this.renderHeight);
+    ctx.restore();
   }
   actionPose() {
     const a = this.action;
@@ -48,6 +65,7 @@ export class NightFighter extends AndyFighter {
     this.action = { name, time: 0, charge: 0, hitDone: false, targets: new Set(), ...extra };
     this.setFrame(this.actionPose());
     this.vx = 0;
+    this.crouching = false;
     return true;
   }
 
@@ -65,6 +83,10 @@ export class NightFighter extends AndyFighter {
         return;
       }
     } else if (this.action?.name === 'block') this.action = null;
+    // Duck: hold Down on the ground while free. Low profile dodges level
+    // bolts; jump, roll or attack to come back up.
+    this.crouching = !!(this.onGround && !this.action && this.hitstun <= 0 &&
+      source.isDown('KeyS', 'ArrowDown'));
     const gun = this.kind === 'deckard';
     this.input = {
       isDown: (...codes) => source.isDown(...codes),
@@ -76,6 +98,13 @@ export class NightFighter extends AndyFighter {
       },
     };
     try { super.controls(delta, stage); } finally { this.input = source; }
+    // Leaving the duck: airborne or acting means standing.
+    if (!this.onGround || this.action) this.crouching = false;
+    else if (this.crouching) {
+      const dx = Number(source.isDown('KeyD', 'ArrowRight')) - Number(source.isDown('KeyA', 'ArrowLeft'));
+      this.vx = 0;
+      if (dx) this.facing = dx;
+    }
   }
 
   hitbox() {
@@ -113,8 +142,40 @@ export class NightFighter extends AndyFighter {
     this.respawnTimer = Math.max(0, this.respawnTimer - delta);
     if (this.hitstun <= 0 && this.respawnTimer <= 0) this.controls(delta, stage);
     if (this.action?.name === 'roll') this.vx = this.facing * 470;
-    super.physics(delta, stage);
+    this.physics(delta, stage);
     this.advance(delta);
+  }
+
+  // Mirrors the shared fighter's physics with one addition: `stage.surfaces`
+  // (topmost first) lets fighters land on one-way rooftop ledges. Kept local
+  // so Smash's physics stays byte-for-byte untouched.
+  physics(delta, stage) {
+    this.dashTimer = Math.max(0, this.dashTimer - delta);
+    const gravity = 2100;
+    this.vy += gravity * delta;
+    this.x += this.vx * delta;
+    this.y += this.vy * delta;
+
+    const fallSpeed = this.vy;
+    this.onGround = false;
+    const footY = this.y + this.renderHeight / 2;
+    const prevFootY = footY - this.vy * delta;
+    const surfaces = stage.surfaces || [stage.platform];
+    for (const ground of surfaces) {
+      if (this.x < ground.x0 || this.x > ground.x1) continue;
+      if (footY < ground.y || this.vy < 0) continue;
+      // One-way ledges only catch a faller from above; jumps pass through.
+      if (ground.oneWay && prevFootY > ground.y + 4) continue;
+      this.y = ground.y - this.renderHeight / 2;
+      this.vy = 0; this.onGround = true; this.jumpsLeft = 2;
+      if (fallSpeed > 500) stage.sfx?.play('land');
+      if (!this.action && this.hitstun <= 0) this.vx *= Math.pow(0.001, delta);
+      break;
+    }
+    const minX = this.renderWidth * 0.35, maxX = stage.width - this.renderWidth * 0.35;
+    if (this.x < minX || this.x > maxX) {
+      if (this.hitstun <= 0) this.x = Math.max(minX, Math.min(maxX, this.x));
+    }
   }
 
   respawn(stage) {
@@ -128,6 +189,7 @@ export class NightFighter extends AndyFighter {
     this.onGround = true;
     this.jumpsLeft = 2;
     this.guard = 100; this.guardBroken = 0; this.guardCooldown = 0; this.blockFlash = 0;
+    this.crouching = false;
     this.setFrame(0);
   }
 }

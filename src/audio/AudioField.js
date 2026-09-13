@@ -39,13 +39,15 @@ export class AudioField {
     await this.context.resume();
   }
 
-  tone(frequency, duration, volume, bus, type = 'sine', endFrequency = frequency) {
-    const now = this.context.currentTime;
+  // `when` is an absolute AudioContext time for sample-accurate scheduling;
+  // omit it to start immediately (existing callers unchanged).
+  tone(frequency, duration, volume, bus, type = 'sine', endFrequency = frequency, when = null) {
+    const now = when ?? this.context.currentTime;
     const oscillator = this.context.createOscillator();
     const envelope = this.context.createGain();
     oscillator.type = type;
     oscillator.frequency.setValueAtTime(frequency, now);
-    oscillator.frequency.exponentialRampToValueAtTime(endFrequency, now + duration);
+    oscillator.frequency.exponentialRampToValueAtTime(Math.max(20, endFrequency), now + duration);
     envelope.gain.setValueAtTime(0, now);
     envelope.gain.linearRampToValueAtTime(volume, now + 0.012);
     envelope.gain.exponentialRampToValueAtTime(0.0001, now + duration);

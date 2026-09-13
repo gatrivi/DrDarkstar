@@ -1,6 +1,20 @@
 import { knockback } from '../smash/SmashStage.js';
 
 export const WORLD = { width: 960, height: 600, ground: 468 };
+
+// One-way rooftop slabs for the demo layout. Gaps are tuned for the jump
+// arc (single jump ~135px, double ~245px): 366 is one jump from the street,
+// 300 a hop from the low roofs, 236 the double-jump perch in the middle.
+export const LAYOUTS = {
+  street: [],
+  rooftops: [
+    { x0: 150, x1: 262, y: 366, oneWay: true },
+    { x0: 296, x1: 424, y: 300, oneWay: true },
+    { x0: 556, x1: 684, y: 366, oneWay: true },
+    { x0: 500, x1: 620, y: 236, oneWay: true },
+    { x0: 744, x1: 872, y: 318, oneWay: true },
+  ],
+};
 export const ROSTER = {
   blade: { name: 'BLADE', row: 0, limit: 150, color: '#ff647b', weapon: 'SILVER / SWORD' },
   deckard: { name: 'DECKARD', row: 1, limit: 150, color: '#f5bd78', weapon: 'PK-D / BLASTER' },
@@ -50,8 +64,21 @@ export function hitTarget(attacker, target, move, charge = 0, direction = attack
   target.invulnerable = target.team === 'hunter' ? .65 : .12;
   return true;
 }
-export function projectileSweep(projectile, nextX) {
-  return { x: Math.min(projectile.x, nextX) - 4, y: projectile.y - 4, w: Math.abs(nextX - projectile.x) + 8, h: 8 };
+export function projectileSweep(projectile, nextX, nextY = projectile.y) {
+  return { x: Math.min(projectile.x, nextX) - 4, y: Math.min(projectile.y, nextY) - 4,
+    w: Math.abs(nextX - projectile.x) + 8, h: Math.abs(nextY - projectile.y) + 8 };
+}
+
+// Aim a straight-line shot from (x0,y0) at (x1,y1): velocity clamped to a
+// max deflection so crouch-ducks force a readable downward angle and ledge
+// campers catch rising shots — both beaten by moving (jump the dips, drop
+// from the ledges). Pure; unit-tested.
+export function aimShot(x0, y0, x1, y1, speed, maxAngle = 0.38) {
+  const dx = x1 - x0, dy = y1 - y0;
+  const dir = dx >= 0 ? 1 : -1;
+  const raw = Math.atan2(dy, Math.abs(dx) || 1);
+  const angle = Math.max(-maxAngle, Math.min(maxAngle, raw));
+  return { vx: dir * speed * Math.cos(angle), vy: speed * Math.sin(angle) };
 }
 
 // Demolition-style run economy (pure; unit-tested). Hunters earn for every

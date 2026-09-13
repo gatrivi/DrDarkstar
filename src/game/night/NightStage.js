@@ -5,7 +5,7 @@ import { NightFighter } from './NightFighter.js';
 import { loadAtlas } from './Atlas.js';
 import { WorldRain } from './WorldRain.js';
 import { shurikenRain } from './ProjectileRain.js';
-import { WORLD, NIGHT_MOVES, overlaps, hitTarget, blockHit, projectileSweep, vulnerable,
+import { WORLD, NIGHT_MOVES, overlaps, hitTarget, blockHit, projectileSweep, vulnerable, aimShot, LAYOUTS,
   SCORE, scoreForHit, scoreForKO, comboMult, bountyIdValid, bountyPayout, boardRank, boardInsert } from './Combat.js';
 
 export class NightStage {
@@ -15,6 +15,8 @@ export class NightStage {
     this.sfx = new SmashSfx(sound);
     this.state = 'loading'; this.time = 0;
     this.kind = 'blade'; this.particleBodies = true;
+    this.layout = 'street';
+    this.ledges = LAYOUTS.street.map((l) => ({ ...l }));
     this.worldRainEnabled=true;this.visualFrame=0;this.visualDelta=1/60;
     this.visualAudio={bass:0,mid:0,treble:0,effect:0};
     this.fx = []; this.projectiles = []; this.enemies = []; this.rains = [];
@@ -60,6 +62,19 @@ export class NightStage {
 
   get platform() { return { x0: 24, x1: this.width - 24, y: WORLD.ground }; }
   get actors() { return this.player ? [this.player, ...this.enemies] : []; }
+  // Landing surfaces, topmost first, so a falling fighter lands on the
+  // highest ledge they cross before reaching the street.
+  get surfaces() {
+    return [...this.ledges].sort((a, b) => a.y - b.y).concat(this.platform);
+  }
+
+  setLayout(name = 'rooftops') {
+    if (!(name in LAYOUTS) || name === this.layout) return false;
+    this.layout = name;
+    this.ledges = LAYOUTS[name].map((l) => ({ ...l }));
+    // Anyone standing on a removed ledge simply falls once physics runs.
+    return true;
+  }
 
   async load() {
     this.atlas = await loadAtlas();
@@ -128,13 +143,21 @@ export class NightStage {
     this.rains[0].drops.forEach(d => { d.pixel = null; d.intensity = 0; });
     return true;
   }
-  driveEnemy(enemy) {
+  driveEnemy(enemy, delta = 1 / 60) {
     if (enemy.dead || enemy.hitstun > 0 || enemy.action) return;
+    enemy.jumpCd = Math.max(0, (enemy.jumpCd || 0) - delta);
     const dx = this.player.x - enemy.x, distance = Math.abs(dx);
     enemy.facing = Math.sign(dx) || enemy.facing;
     const vertical = Math.abs(this.player.feet - enemy.feet);
     if (enemy.kind === 'vampire') {
       enemy.vx = distance > 69 ? enemy.facing * 90 : 0;
+      // Ledges are a tactical perch, not a cheese spot: vampires leap after
+      // a hunter standing well above them.
+      const above = enemy.feet - this.player.feet;
+      if (above > 70 && distance < 300 && enemy.onGround && enemy.jumpCd <= 0) {
+        enemy.vy = -760; enemy.onGround = false; enemy.jumpsLeft = 1;
+        enemy.jumpCd = .9;
+      }
       if (distance < 94 && vertical < 75 && enemy.cooldown <= 0) {
         enemy.startMove('claw'); enemy.cooldown = 1.9 + Math.random() * .5;
       }
@@ -270,7 +293,18 @@ export class NightStage {
   fire(owner, move, charge = 0) {
     const enemy = owner.team !== 'hunter';
     const kind = !enemy && owner.kind === 'blade' ? 'shuriken' : 'bolt';
-    const shot={ x: owner.x + owner.facing * 34, y: owner.feet - 69, vx: owner.facing * (enemy ? 330 : 780),
+    const muzzleX = owner.x + owner.facing * 34, muzzleY = owner.feet - 69;
+    let vx, vy = 0;
+    if (enemy) {
+      // Bolt guns track the hunter's chest line: ducking under a fired shot
+      // works, standing still does not, and ledges turn shots into rising
+      // arcs you beat by jumping or dropping off.
+      const aim = aimShot(muzzleX, muzzleY, this.player.x, this.player.feet - 85, 330, 0.42);
+      vx = aim.vx; vy = aim.vy;
+    } else {
+      vx = owner.facing * 780;
+    }
+    const shot={ x: muzzleX, y: muzzleY, vx, vy,
       owner, direction: owner.facing, move, charge, kind, angle:0,cos:1,sin:0, life: 1.8, color: enemy ? '#ff727b' : kind === 'shuriken' ? '#c2f8ff' : '#ffd9a0' };
     if(kind==='shuriken')shot.rain=shurikenRain(shot,this.atlas.shurikenSamples,this.width,this.height);
     this.projectiles.push(shot);
@@ -284,7 +318,7 @@ export class NightStage {
     if (this.stats.comboT <= 0) this.stats.combo = 0;
     this.frenzyT = Math.max(0, this.frenzyT - delta);
     for (const enemy of this.enemies) {
-      this.driveEnemy(enemy);
+      this.driveEnemy(enemy, delta);
       if (enemy.action?.name === 'claw' && enemy.action.time > .29 && enemy.action.time < .42) enemy.vx = enemy.facing * 150;
       enemy.update(delta, this);
     }
@@ -303,15 +337,16 @@ export class NightStage {
       }
     }
     for (const shot of this.projectiles) {
-      const next = shot.x + shot.vx * delta, sweep = projectileSweep(shot, next);
+      const next = shot.x + shot.vx * delta, nextY = shot.y + (shot.vy || 0) * delta;
+      const sweep = projectileSweep(shot, next, nextY);
       const targets = this.actors.filter(f => f.team !== shot.owner.team && vulnerable(f) && overlaps(sweep, f.hurtbox))
         .sort((a,b) => Math.abs(a.x - shot.x) - Math.abs(b.x - shot.x));
       if (targets[0] && this.hit(shot.owner, targets[0], shot.move, shot.charge, shot.direction)) shot.life = 0;
-      shot.x = next; shot.life -= delta;
+      shot.x = next; shot.y = nextY; shot.life -= delta;
       shot.angle += delta*shot.direction*25;
       shot.cos=Math.cos(shot.angle);shot.sin=Math.sin(shot.angle);
     }
-    this.projectiles = this.projectiles.filter(p => p.life > 0 && p.x > -40 && p.x < this.width + 40);
+    this.projectiles = this.projectiles.filter(p => p.life > 0 && p.x > -40 && p.x < this.width + 40 && p.y > -60 && p.y < this.height + 60);
     for (const fighter of this.actors) {
       if (!fighter.dead && fighter.respawnTimer <= 0 && isOutOfBounds(fighter, this.width, this.height)) this.defeat(fighter);
     }
@@ -368,6 +403,20 @@ export class NightStage {
     ctx.fillStyle = '#0b1622'; ctx.fillRect(spinner-14,156,28,6);
     ctx.fillStyle = '#efa66e'; ctx.fillRect(spinner-11,162,3,2); ctx.fillStyle = '#9fdef0'; ctx.fillRect(spinner+8,162,3,2);
     if (Math.sin(this.time * 8) > .96) { ctx.fillStyle='rgba(2,10,18,.33)'; ctx.fillRect(690,110,108,250); }
+    // Rooftop slabs: dark concrete, lit lip, a spark of neon on the corner.
+    for (const l of this.ledges) {
+      const w = l.x1 - l.x0;
+      ctx.fillStyle = '#0b1522';
+      ctx.fillRect(l.x0, l.y, w, 9);
+      ctx.fillStyle = '#091019';
+      ctx.fillRect(l.x0 + 5, l.y + 9, w - 10, 7);
+      ctx.fillStyle = l.oneWay ? '#2c4a60' : '#1e3a5f';
+      ctx.fillRect(l.x0, l.y, w, 3);
+      ctx.fillStyle = '#5fd0e0';
+      ctx.fillRect(l.x0 + 4, l.y, Math.min(20, w / 3), 2);
+      ctx.fillStyle = 'rgba(0,0,0,.4)';
+      ctx.fillRect(l.x0 + 8, l.y + 16, w - 16, 3);
+    }
     if(!solid)this.ambientRain.draw(ctx);
     for (const f of this.actors) {
       if (f.dead && f.deathTime > .75 || f.respawnTimer > 0) continue;
@@ -396,7 +445,18 @@ export class NightStage {
       }
       ctx.globalAlpha=1;return;
     }
-    ctx.fillStyle=shot.color;ctx.fillRect(shot.x-(shot.vx>0?17:0),shot.y-2,17+shot.charge*12,4);
+    ctx.fillStyle=shot.color;
+    if (shot.vy) {
+      // Angled bolt: draw along its flight path.
+      ctx.save();
+      ctx.translate(Math.round(shot.x), Math.round(shot.y));
+      ctx.rotate(Math.atan2(shot.vy, shot.vx));
+      ctx.fillRect(shot.vx>0?-17:0,-2,17+shot.charge*12,4);
+      ctx.globalAlpha=.24;ctx.fillRect(-8,-6,20,12);ctx.globalAlpha=1;
+      ctx.restore();
+      return;
+    }
+    ctx.fillRect(shot.x-(shot.vx>0?17:0),shot.y-2,17+shot.charge*12,4);
     ctx.globalAlpha=.24;ctx.fillRect(shot.x-8,shot.y-6,20,12);ctx.globalAlpha=1;
   }
   drawCombatHud(ctx){

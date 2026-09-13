@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  NIGHT_MOVES, hitTarget, blockHit, projectileSweep, overlaps,
+  NIGHT_MOVES, hitTarget, blockHit, projectileSweep, overlaps, aimShot, LAYOUTS, WORLD,
   SCORE, scoreForHit, scoreForKO, comboMult, BOUNTIES, bountyIdValid,
   bountyPayout, boardRank, boardInsert, decodeChallenge, encodeChallenge,
 } from '../src/game/night/Combat.js';
@@ -32,6 +32,28 @@ test('projectile sweep detects a target crossed between frames in both direction
   assert.ok(overlaps(projectileSweep({x:0,y:50},120),hurt));
   assert.ok(overlaps(projectileSweep({x:120,y:50},0),hurt));
   assert.equal(overlaps(projectileSweep({x:0,y:5},120),hurt),false);
+});
+
+test('sweep covers vertical travel so angled shots connect', () => {
+  const hurt = { x: 55, y: 60, w: 12, h: 30 };
+  assert.ok(overlaps(projectileSweep({ x: 60, y: 20 }, 60, 80), hurt));
+  assert.equal(overlaps(projectileSweep({ x: 60, y: 20 }, 60, 40), hurt), false);
+  // legacy horizontal callers still work (nextY defaults to start height)
+  assert.ok(overlaps(projectileSweep({ x: 0, y: 70 }, 120), hurt));
+});
+
+test('aimShot points at the target within the deflection cap', () => {
+  const flat = aimShot(0, 0, 300, 0, 330);
+  assert.ok(Math.abs(flat.vy) < 1e-9 && flat.vx === 330);
+  const down = aimShot(0, 0, 300, 200, 330);
+  assert.ok(down.vx > 0 && down.vy > 0);
+  const speed = Math.hypot(down.vx, down.vy);
+  assert.ok(Math.abs(speed - 330) < 1e-6);
+  assert.ok(Math.abs(Math.asin(down.vy / speed)) <= 0.38 + 1e-9);
+  const left = aimShot(300, 0, 0, 50, 330);
+  assert.ok(left.vx < 0 && left.vy > 0);
+  const steep = aimShot(0, 0, 10, 500, 330, 0.38);
+  assert.ok(Math.abs(Math.asin(steep.vy / 330) - 0.38) < 1e-9);
 });
 test('charge releases into an attack and prevents unrelated move cancellation', () => {
   const f=Object.assign(Object.create(NightFighter.prototype),{
@@ -106,4 +128,32 @@ test('challenge links round-trip and reject garbage', () => {
   assert.equal(decodeChallenge(null), null);
   assert.equal(decodeChallenge('!!!not-base64!!!'), null);
   assert.equal(decodeChallenge(encodeChallenge(-5)), null);
+});
+
+test('crouching shrinks the hurtbox so level bolts sail overhead', () => {
+  const f = Object.create(NightFighter.prototype);
+  Object.defineProperty(f, 'feet', { value: 450, writable: true }); // shadow the getter
+  f.x = 300; f.crouching = false;
+  const stand = f.hurtbox;
+  f.crouching = true;
+  const duck = f.hurtbox;
+  assert.ok(duck.h < stand.h, 'ducking lowers the profile');
+  assert.ok(duck.y > stand.y, 'ducking drops the top of the hurtbox');
+  const boltY = stand.y + 20; // bolt through the standing chest
+  assert.ok(boltY < duck.y, 'that bolt line clears the crouched hunter');
+});
+
+test('rooftop layout is one-way, inside the arena, and climbs by steps', () => {
+  assert.deepEqual(LAYOUTS.street, []);
+  const roofs = LAYOUTS.rooftops;
+  assert.ok(roofs.length >= 4);
+  for (const l of roofs) {
+    assert.equal(l.oneWay, true);
+    assert.ok(l.x0 < l.x1);
+    assert.ok(l.x0 >= 0 && l.x1 <= WORLD.width);
+    assert.ok(l.y < WORLD.ground, 'ledges sit above the street');
+  }
+  const heights = roofs.map((l) => WORLD.ground - l.y);
+  assert.ok(Math.min(...heights) <= 135, 'a low roof is one jump away');
+  assert.ok(Math.max(...heights) <= 245, 'even the perch is double-jumpable');
 });
