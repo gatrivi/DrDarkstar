@@ -15,6 +15,7 @@ await mkdir(output, { recursive: true });
 const entries = [
   'index.html', 'games.html', 'rain.html', 'smash.html', 'night.html',
   'src', 'andy.jpeg',
+  'assets/smash-cousins-thumbnail.png',
   'WhatsApp Image 2026-09-06 at 3.19.01 PM.jpeg',
   'WhatsApp Image 2026-09-06 at 3.19.01 PM (1).jpeg',
   'assets/night-hunters/city.png',
