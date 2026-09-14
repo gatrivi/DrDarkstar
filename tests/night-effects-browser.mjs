@@ -14,7 +14,9 @@ try{
     const result=await page.evaluate(async pose=>{
       const {stage,input,loop}=window.nightEffects;
       const {NIGHT_MOVES}=await import('/src/game/night/Combat.js');
-      stage.kind=pose==='deckard-block'?'deckard':'blade';stage.reset();stage.player.x=360;
+      stage.kind=pose==='deckard-block'?'deckard':'blade';stage.reset();
+      if(stage.state==='strolling')stage.startHunt();
+      stage.player.x=360;
       stage.enemies.forEach((e,i)=>{e.x=710+i*90;e.cooldown=999;});stage.driveEnemy=()=>{};
       input.down.clear();input.pressed.clear();
       const ctx=document.querySelector('#night-game').getContext('2d');

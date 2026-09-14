@@ -1,7 +1,7 @@
 {
   "metrics": {
     "world": {
-      "fps": 26,
+      "fps": 28,
       "medianFrameMs": 33.4
     },
     "classic": {

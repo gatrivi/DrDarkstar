@@ -28,6 +28,36 @@ try {
   await page.keyboard.press('Space');await page.waitForTimeout(130);
   assert.ok(await page.evaluate(y=>window.nightTest.stage.player.y<y-20,standingY),'real keyboard jumps');
 
+  // Uptown stroll: the hunt has not started, photos work, the gate starts it.
+  assert.equal(await page.evaluate(()=>window.nightTest.stage.state),'strolling');
+  assert.equal(await page.evaluate(()=>window.nightTest.stage.enemies.length),0);
+  await page.keyboard.press('f');
+  await page.waitForFunction(()=>window.nightTest.stage.photos.length===1,null,{timeout:5000});
+  await page.keyboard.press('g');
+  await page.waitForFunction(()=>!!window.nightTest.stage.viewer,null,{timeout:5000});
+  await page.keyboard.press('g');
+  await page.waitForFunction(()=>!window.nightTest.stage.viewer,null,{timeout:5000});
+  await page.evaluate(()=>{window.nightTest.stage.player.x=700;});
+  await page.waitForFunction(()=>window.nightTest.stage.state==='playing',null,{timeout:5000});
+  assert.ok(await page.evaluate(()=>window.nightTest.stage.enemies.length===3),'crossing the gate spawns the wave');
+
+  // The canteen: B inside the noodle bar swaps the storm for glass rain.
+  await page.evaluate(()=>{window.nightTest.stage.reset();window.nightTest.stage.player.x=108;});
+  await page.waitForFunction(()=>window.nightTest.stage.state==='strolling',null,{timeout:5000});
+  await page.keyboard.press('b');
+  await page.waitForFunction(()=>window.nightTest.stage.canteen,null,{timeout:5000});
+  await page.waitForTimeout(700); // let the droplets slide a little
+  await page.screenshot({path:'output/night-hunters/canteen-glass.png'});
+  const xBefore = await page.evaluate(()=>window.nightTest.stage.player.x);
+  await page.keyboard.down('d'); await page.waitForTimeout(300); await page.keyboard.up('d');
+  assert.ok(await page.evaluate(x=>window.nightTest.stage.player.x===x,xBefore),'the hunter sits still inside');
+  await page.keyboard.press('b');
+  await page.waitForFunction(()=>!window.nightTest.stage.canteen,null,{timeout:5000});
+  await page.evaluate(()=>{window.nightTest.stage.player.x=700;});
+  await page.keyboard.press('b');
+  await page.waitForTimeout(400);
+  assert.ok(await page.evaluate(()=>!window.nightTest.stage.canteen),'no canteen mid-street');
+
   const result = await page.evaluate(async()=>{
     const { stage, input, loop } = window.nightTest;
     const { NIGHT_MOVES } = await import('/src/game/night/Combat.js');
@@ -40,6 +70,9 @@ try {
     function tick(n=1){for(let i=0;i<n;i++)loop.update(1/60);}
     function reset(kind='blade'){
       stage.kind=kind;stage.reset();input.down.clear();input.pressed.clear();
+      if(stage.state==='strolling')stage.startHunt();
+      stage.player.x=700;
+      stage.enemies.forEach((e,i)=>{if(i)e.x=118+i*22;});
       stage.driveEnemy=()=>{};stage.enemies.forEach(e=>{e.cooldown=999;e.vx=0;});
       document.querySelector('#night-game').focus();tick();
     }
@@ -161,6 +194,7 @@ try {
         stage.player.facing=1;stage.player.vx=stage.player.vy=0;stage.player.onGround=true;
         for(let attempt=0;attempt<8&&!target.dead;attempt++){
           stage.player.x=target.x-150;target.vx=0;target.vy=0;target.y=stage.platform.y-target.renderHeight/2;
+          if(attempt===0)target.percent=target.limit-14; // one grounded shot lands the KO
           key('KeyJ');tick(40);key('KeyJ',false);tick();
         }
         check(target.dead,`primary fire defeats ${target.kind} in wave ${wave+1}`);
@@ -175,6 +209,7 @@ try {
     }
     check(stage.state==='won' && stage.stats.kills===6 && !document.querySelector('#overlay').hidden,'six eliminations finish the mission');
     document.querySelector('#start').click();loop.stop();stage.driveEnemy=()=>{};
+    if(stage.state==='strolling')stage.startHunt();
     check(stage.player.stocks===3 && stage.stats.kills===0 && stage.wave===1,'hunt again resets the whole encounter');
     stage.player.stocks=1;stage.player.percent=149;stage.player.invulnerable=0;
     stage.hit(stage.enemies[0],stage.player,NIGHT_MOVES.claw);tick();
@@ -182,6 +217,7 @@ try {
     document.querySelector('#choose [data-hunter="blade"]').click();
     check(stage.kind==='blade','retry screen can select a different hunter');
     document.querySelector('#start').click();loop.stop();
+    if(stage.state==='strolling')stage.startHunt();
     check(stage.state==='playing' && stage.player.stocks===3,'retry is playable');
     stage.driveEnemy=driveEnemy;
     reset('blade');stage.player.x=350;stage.enemies[0].x=430;

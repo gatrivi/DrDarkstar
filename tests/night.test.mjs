@@ -6,6 +6,9 @@ import {
   bountyPayout, boardRank, boardInsert, decodeChallenge, encodeChallenge,
 } from '../src/game/night/Combat.js';
 import { NightFighter } from '../src/game/night/NightFighter.js';
+import { NightStage } from '../src/game/night/NightStage.js';
+import { ZEN, zoneOf, pastGate, inNoodleBar, photoLog, filmStrip, PHOTO_LOGS } from '../src/game/night/ZenZone.js';
+import { CANTEEN, GlassRain } from '../src/game/night/Canteen.js';
 
 const attacker = { team: 'hunter', facing: 1 };
 const target = extra => ({ team:'hostile', percent:0, invulnerable:0, respawnTimer:0, dead:false, action:null, ...extra });
@@ -156,4 +159,77 @@ test('rooftop layout is one-way, inside the arena, and climbs by steps', () => {
   const heights = roofs.map((l) => WORLD.ground - l.y);
   assert.ok(Math.min(...heights) <= 135, 'a low roof is one jump away');
   assert.ok(Math.max(...heights) <= 245, 'even the perch is double-jumpable');
+});
+
+test('uptown sanctuary sits left of the sector gate with the noodle bar inside it', () => {
+  assert.ok(ZEN.gate > 205 && ZEN.gate < WORLD.width, 'gate splits the arena');
+  assert.ok(ZEN.noodleX < ZEN.gate - ZEN.noodleRadius, 'noodle bar stays uptown');
+  assert.equal(zoneOf(108), 'uptown');
+  assert.equal(zoneOf(ZEN.gate - 1), 'uptown');
+  assert.equal(zoneOf(ZEN.gate + 1), 'downtown');
+  assert.ok(!pastGate(600) && pastGate(660));
+  assert.ok(inNoodleBar(108) && inNoodleBar(150) && !inNoodleBar(205));
+});
+
+test('walking past the sector gate is the only way to start the hunt', () => {
+  const s = Object.assign(Object.create(NightStage.prototype), {
+    state: 'strolling', time: 10, wave: 0, zone: 'uptown', callouts: [],
+    spawnWave() { this.enemies = [1, 2, 3]; },
+  });
+  assert.equal(s.startHunt(), true);
+  assert.equal(s.state, 'playing');
+  assert.equal(s.zone, 'downtown');
+  assert.equal(s.wave, 1);
+  assert.equal(s.enemies.length, 3);
+  assert.equal(s.startHunt(), false, 'the hunt cannot restart from playing');
+  const done = Object.assign(Object.create(NightStage.prototype), { state: 'won' });
+  assert.equal(done.startHunt(), false);
+});
+
+test('esper film strip keeps the newest six exposures and cycles the log lines', () => {
+  const shots = [];
+  for (let i = 0; i < 9; i++) shots.push({ n: i });
+  const strip = shots.reduce((acc, shot) => filmStrip(acc, shot), []);
+  assert.equal(strip.length, ZEN.photoCap);
+  assert.deepEqual(strip.map((p) => p.n), [3, 4, 5, 6, 7, 8], 'oldest shots fall off');
+  assert.match(photoLog(0), /RAIN|ENHANCE|VOIGHT/);
+  assert.equal(photoLog(-1), photoLog(PHOTO_LOGS.length - 1));
+});
+
+test('the canteen door only opens from the noodle bar while strolling', () => {
+  const s = Object.assign(Object.create(NightStage.prototype), {
+    state: 'strolling', canteen: false, viewer: null,
+    player: { x: ZEN.noodleX }, sfx: { play() {} },
+    announce() {}, callouts: [],
+  });
+  assert.equal(s.toggleCanteen(), true);
+  assert.equal(s.canteen, true);
+  assert.equal(s.toggleCanteen(), true, 'B steps back out into the rain');
+  assert.equal(s.canteen, false);
+  const outside = Object.assign(Object.create(NightStage.prototype), {
+    state: 'strolling', canteen: false, viewer: null,
+    player: { x: ZEN.gate - 40 }, sfx: { play() {} }, announce() {},
+  });
+  assert.equal(outside.toggleCanteen(), false, 'no door mid-street');
+  const hunting = Object.assign(Object.create(NightStage.prototype), {
+    state: 'playing', canteen: false, viewer: null,
+    player: { x: ZEN.noodleX }, sfx: { play() {} }, announce() {},
+  });
+  assert.equal(hunting.toggleCanteen(), false, 'no shelter mid-hunt');
+});
+
+test('glass rain droplets slide down the pane and never leave it', () => {
+  const glass = new GlassRain(CANTEEN.pane.w, CANTEEN.pane.h, 40);
+  for (let i = 0; i < 600; i++) glass.update(1 / 60);
+  for (const d of glass.drops) {
+    assert.ok(d.y >= -20 && d.y <= CANTEEN.pane.h + 12, 'drops stay on the pane');
+    assert.ok(d.x >= 0 && d.x <= CANTEEN.pane.w);
+    assert.ok(d.hold > 0 || d.vy > 0, 'gravity always wins on vertical glass');
+  }
+  // A held drop breaks loose; a moving drop accelerates.
+  const free = glass.drops[0];
+  free.hold = 0; free.vy = 10;
+  const before = free.vy;
+  glass.update(1 / 60);
+  assert.ok(free.vy > before, 'release accelerates down the glass');
 });

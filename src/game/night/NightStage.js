@@ -7,6 +7,8 @@ import { WorldRain } from './WorldRain.js';
 import { shurikenRain } from './ProjectileRain.js';
 import { WORLD, NIGHT_MOVES, overlaps, hitTarget, blockHit, projectileSweep, vulnerable, aimShot, LAYOUTS,
   SCORE, scoreForHit, scoreForKO, comboMult, bountyIdValid, bountyPayout, boardRank, boardInsert } from './Combat.js';
+import { ZEN, inNoodleBar, pastGate, photoLog, filmStrip } from './ZenZone.js';
+import { CANTEEN, CANTEEN_LOGS, GlassRain } from './Canteen.js';
 
 export class NightStage {
   constructor({ input, sound }) {
@@ -29,6 +31,16 @@ export class NightStage {
     this.challenge = null;// {target, label} from ?challenge= (set by night.js)
     this.board = this.loadBoard();
     this.lastSummary = null;
+    // Uptown stroll kit: Esper photos, noodle-bar warmth, sector gate.
+    this.photos = [];      // [{canvas, log}] — film strip, survives hunts
+    this.viewer = null;    // Esper viewer {index, x, y, zoom} while open
+    this.photoFlash = 0;
+    this.noodleT = 0; this.noodleToastT = 0;
+    this.resumeState = 'strolling';
+    // The canteen: an interior off the noodle bar where the rain becomes
+    // droplets sliding down the window glass.
+    this.canteen = false;
+    this.glass = new GlassRain();
     this.onDash = () => this.sfx.play('dash');
     this.trails = document.createElement('canvas');
     this.trails.width = this.width; this.trails.height = this.height;
@@ -100,16 +112,30 @@ export class NightStage {
     this.lastSummary = null;
     this.wave = 1; this.waveDelay = 0;
     this.fx = []; this.projectiles = [];
+    // Uptown starts quiet: no wave, only rain. The gate to Sector 10 is a
+    // walk, not a button — spawnWave happens when the hunter crosses it.
+    this.enemies = [];
+    this.rains = [this.makeRain(this.player, 4700)];
     this.trailCtx.clearRect(0, 0, this.width, this.height);
     this.worldRain?.reset();
     this.ambientRain = new CollisionRain({ width: this.width, height: this.height, actor: this.player, count: 900,
       settings: { size: 1.1, reveal: 1.5 } });
+    this.zone = 'uptown'; this.noodleT = 0; this.noodleToastT = 0;
+    this.canteen = false;
+    this.viewer = null;
+    this.state = play ? 'strolling' : 'ready';
+  }
+  startHunt() {
+    if (this.state !== 'strolling') return false;
+    this.state = 'playing'; this.zone = 'downtown';
+    this.wave = 1; this.waveStart = this.time; this.runStart = this.time;
     this.spawnWave();
-    this.state = play ? 'playing' : 'ready';
+    this.announce('SECTOR 10', 'HUNTING GROUNDS', '#ff768b');
+    return true;
   }
   spawnWave() {
     const kinds = this.wave === 1 ? ['vampire', 'replicant', 'vampire'] : ['replicant', 'vampire', 'replicant'];
-    this.enemies = kinds.map((kind, i) => new NightFighter({ kind, atlas: this.atlas, x: [480, 705, 845][i], ground: WORLD.ground }));
+    this.enemies = kinds.map((kind, i) => new NightFighter({ kind, atlas: this.atlas, x: [700, 790, 872][i], ground: WORLD.ground }));
     this.rains = [this.makeRain(this.player, 4700), ...this.enemies.map(f => this.makeRain(f, 2300))];
     this.enemies.forEach(f => { f.facing = Math.sign(this.player.x - f.x) || -1; });
     if (this.wave > 1) this.player.invulnerable = Math.max(this.player.invulnerable, 1.1);
@@ -124,6 +150,76 @@ export class NightStage {
     this.spawnWave();
     this.state = 'playing';
     return true;
+  }
+
+  // ---- Uptown stroll -------------------------------------------------------
+  // No enemies, no score. Rain, photos, noodles. Crossing the sector gate is
+  // the only way downtown.
+  updateStroll(delta) {
+    if (this.viewer) { this.updateViewer(delta); return; }
+    // Inside the canteen the hunter sits still: the world waits outside.
+    if (this.canteen) return;
+    this.player.update(delta, this);
+    // The noodle bar: steam, guard and a slow breath back.
+    if (this.player.onGround && inNoodleBar(this.player.x)) {
+      this.noodleT += delta;
+      this.player.guard = Math.min(100, this.player.guard + delta * 26);
+      this.player.percent = Math.max(0, this.player.percent - delta * 9);
+      if (this.noodleT > .5 && this.noodleToastT <= 0) {
+        this.announce('TWO, PLEASE', 'NOODLES · STEAM · NO MONSTERS', '#ffd9a0');
+        this.noodleToastT = 10;
+      }
+    } else this.noodleT = 0;
+    this.noodleToastT = Math.max(0, this.noodleToastT - delta);
+    if (pastGate(this.player.x)) this.startHunt();
+  }
+
+  // The canteen is a door in the noodle bar's glow — uptown only. B steps
+  // in and out; the hunt never starts from inside.
+  toggleCanteen() {
+    if (this.canteen) {
+      this.canteen = false;
+      this.sfx.play('dash');
+      this.announce('BACK INTO THE RAIN', 'THE STALL KEEPS YOUR SEAT', '#8ee8f2');
+      return true;
+    }
+    if (this.state !== 'strolling' || this.viewer || !inNoodleBar(this.player.x)) return false;
+    this.canteen = true;
+    this.sfx.play('dash');
+    this.announce(CANTEEN_LOGS[0], CANTEEN_LOGS[1], '#ffd9a0');
+    return true;
+  }
+
+  // Esper photo mode: snap the live frame, keep the last six exposures.
+  snapPhoto() {
+    if (this.state !== 'strolling' || this.viewer || !this.view) return false;
+    const c = document.createElement('canvas'); c.width = 240; c.height = 150;
+    const g = c.getContext('2d'); g.imageSmoothingEnabled = false;
+    g.drawImage(this.view.canvas, 0, 0, 240, 150);
+    const shot = { canvas: c, log: photoLog(this.photos.length) };
+    this.photos = filmStrip(this.photos, shot);
+    this.photoFlash = .14;
+    this.announce(`PHOTO ${String(this.photos.length).padStart(2, '0')}`, shot.log, '#9fe8d8');
+    return true;
+  }
+
+  toggleViewer() {
+    if (this.viewer) { this.viewer = null; return true; }
+    if (this.state !== 'strolling' || !this.photos.length) return false;
+    this.viewer = { index: this.photos.length - 1, x: .5, y: .5, zoom: 2 };
+    return true;
+  }
+
+  updateViewer(delta) {
+    const v = this.viewer; if (!v) return;
+    const pan = .45 * delta, i = this.input;
+    if (i.isDown('ArrowLeft')) v.x -= pan;
+    if (i.isDown('ArrowRight')) v.x += pan;
+    if (i.isDown('ArrowUp')) v.y -= pan;
+    if (i.isDown('ArrowDown')) v.y += pan;
+    if (i.isDown('KeyE')) v.zoom = Math.min(6, v.zoom * (1 + delta * 1.6));
+    if (i.isDown('KeyQ')) v.zoom = Math.max(1.2, v.zoom / (1 + delta * 1.6));
+    v.x = Math.max(0, Math.min(1, v.x)); v.y = Math.max(0, Math.min(1, v.y));
   }
 
   // Combo-aware score add. Returns the points banked.
@@ -146,6 +242,9 @@ export class NightStage {
   driveEnemy(enemy, delta = 1 / 60) {
     if (enemy.dead || enemy.hitstun > 0 || enemy.action) return;
     enemy.jumpCd = Math.max(0, (enemy.jumpCd || 0) - delta);
+    // Hostiles will not pursue across the sector gate: uptown is neutral
+    // ground. They hold the line (and keep shooting) from downtown side.
+    if (this.player.x <= ZEN.gate && enemy.x > ZEN.gate + 24) { enemy.vx = 0; return; }
     const dx = this.player.x - enemy.x, distance = Math.abs(dx);
     enemy.facing = Math.sign(dx) || enemy.facing;
     const vertical = Math.abs(this.player.feet - enemy.feet);
@@ -350,17 +449,29 @@ export class NightStage {
     for (const fighter of this.actors) {
       if (!fighter.dead && fighter.respawnTimer <= 0 && isOutOfBounds(fighter, this.width, this.height)) this.defeat(fighter);
     }
+    // The noodle bar is neutral ground even mid-hunt: retreat left, breathe.
+    if (this.player.onGround && inNoodleBar(this.player.x)) {
+      this.player.percent = Math.max(0, this.player.percent - delta * 5);
+      if (this.noodleToastT <= 0) { this.announce('TWO, PLEASE', 'STEADY NOW', '#ffd9a0'); this.noodleToastT = 10; }
+    }
+    this.noodleToastT = Math.max(0, this.noodleToastT - delta);
     // Wave 2 arrives only through the bounty pick (setBounty) — never auto.
   }
   update(delta, audio) {
     if (!this.player || this.state === 'paused') return;
     this.time += delta;
     this.visualFrame++;this.visualDelta=delta;
-    if (this.state === 'playing') this.updateCombat(delta);
+    if (this.state === 'strolling') this.updateStroll(delta);
+    else if (this.state === 'playing') this.updateCombat(delta);
     else this.actors.filter(f => f.dead).forEach(f => { f.deathTime += delta; f.setFrame(3); });
     const effects = this.fx.length ? Math.min(.5, this.fx.length / 110) : 0;
-    const levels = { ...audio, effect: Math.max(audio.effect, effects) };
+    // Uptown is calmer: the audio field damps, so the rain visibly softens.
+    const calm = this.state === 'strolling' ? .5 : 1;
+    const levels = { bass: audio.bass * calm, mid: audio.mid * calm, treble: audio.treble * calm,
+      effect: Math.max(audio.effect * calm, effects) };
     this.visualAudio=levels;
+    // The canteen's window: the same storm, reduced to sliding droplets.
+    if (this.canteen) this.glass.update(delta);
     if(this.worldRainEnabled)for(const shot of this.projectiles)shot.rain?.update(delta,levels);
     this.ambientRain.update(delta, levels);
     for (const rain of this.rains) if (!rain.actor.dead) {
@@ -369,6 +480,7 @@ export class NightStage {
     }
     for (const p of this.fx) { p.x += p.vx * delta; p.y += p.vy * delta; p.vy += delta * 160; p.life -= delta; }
     this.fx = this.fx.filter(p => p.life > 0);
+    this.photoFlash = Math.max(0, this.photoFlash - delta);
     for (const c of this.callouts) c.time += delta;
     this.callouts = this.callouts.filter(c => c.time < 1.4);
     const ctx = this.trailCtx;
@@ -379,7 +491,9 @@ export class NightStage {
   }
   render(ctx) {
     if(!this.background){ctx.fillStyle='#060b16';ctx.fillRect(0,0,this.width,this.height);return;}
+    this.view = ctx; // Esper photos capture the live frame.
     ctx.imageSmoothingEnabled=false;
+    if (this.canteen) { this.drawCanteen(ctx); this.drawEsper(ctx); this.drawFlash(ctx); return; }
     if(this.worldRainEnabled){
       this.drawWorld(this.sceneCtx,true);
       this.worldRain.step(this.scene,this.visualDelta,this.visualAudio,this.visualFrame);
@@ -389,6 +503,131 @@ export class NightStage {
       for(const shot of this.projectiles)shot.rain?.draw(ctx);
     }else this.drawWorld(ctx,false);
     this.drawCombatHud(ctx);
+    this.drawEsper(ctx);
+    this.drawFlash(ctx);
+  }
+  drawFlash(ctx) {
+    if (this.photoFlash > 0) {
+      ctx.fillStyle = `rgba(223,244,240,${Math.min(1, this.photoFlash * 4)})`;
+      ctx.fillRect(0, 0, this.width, this.height);
+    }
+  }
+  // The canteen: warm room, cold window. The city stays out there; the rain
+  // becomes droplets gripping, sliding and trailing down the glass.
+  drawCanteen(ctx) {
+    const P = CANTEEN.pane;
+    ctx.fillStyle = '#0a0c10'; ctx.fillRect(0, 0, this.width, this.height);
+    // Ceiling shadow and a warm spill from the counter lamps.
+    ctx.fillStyle = '#080a0e'; ctx.fillRect(0, 0, this.width, 130);
+    ctx.fillStyle = 'rgba(255,176,96,.045)';
+    ctx.fillRect(0, 300, this.width, 300);
+    // --- The window. The city beyond, dimmed; the storm reduced to glass. ---
+    ctx.save();
+    ctx.beginPath(); ctx.rect(P.x, P.y, P.w, P.h); ctx.clip();
+    ctx.globalAlpha = .5;
+    ctx.drawImage(this.background, P.x - 130, P.y - 34, P.w + 210, P.h + 120);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(4,10,20,.42)'; ctx.fillRect(P.x, P.y, P.w, P.h);
+    // Far signage smears through the wet pane.
+    ctx.fillStyle = 'rgba(255,110,130,.10)';
+    ctx.fillRect(P.x + 40, P.y + 60, 60, 90);
+    ctx.fillStyle = 'rgba(120,230,210,.09)';
+    ctx.fillRect(P.x + 220, P.y + 90, 48, 70);
+    // Condensation haze and the sliding droplets, then the frame back in.
+    this.glass.paint(this.visualDelta);
+    this.glass.haze(ctx, P);
+    ctx.drawImage(this.glass.layer, P.x, P.y, P.w, P.h);
+    // Reversed neon reads on the glass: the stall's sign behind you.
+    ctx.save();
+    ctx.translate(P.x + P.w - 46, P.y + 250); ctx.scale(-.55, .55);
+    ctx.font = 'bold 26px monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = 'rgba(255,120,90,.13)';
+    ctx.fillText('NOODLES', 0, 0);
+    ctx.restore();
+    ctx.restore();
+    // Mullions and frame.
+    ctx.fillStyle = '#1a222c';
+    ctx.fillRect(P.x - 8, P.y - 8, P.w + 16, 8); ctx.fillRect(P.x - 8, P.y + P.h, P.w + 16, 8);
+    ctx.fillRect(P.x - 8, P.y - 8, 8, P.h + 16); ctx.fillRect(P.x + P.w, P.y - 8, 8, P.h + 16);
+    ctx.fillRect(P.x + P.w / 3 - 3, P.y, 6, P.h); ctx.fillRect(P.x + 2 * P.w / 3 - 3, P.y, 6, P.h);
+    // --- The counter: wood, stools, steam, warm pools of light. ---
+    const counter = 468;
+    ctx.fillStyle = '#241812'; ctx.fillRect(0, counter, this.width, this.height - counter);
+    ctx.fillStyle = '#33221a'; ctx.fillRect(0, counter, this.width, 8);
+    ctx.fillStyle = 'rgba(255,190,110,.06)'; ctx.fillRect(0, counter + 8, this.width, 3);
+    // Stools.
+    for (let sx = 140; sx < 520; sx += 110) {
+      ctx.fillStyle = '#191218'; ctx.fillRect(sx - 3, counter - 52, 6, 52);
+      ctx.fillStyle = '#2a1c22'; ctx.fillRect(sx - 16, counter - 60, 32, 9);
+    }
+    // The hunter's seat: silhouette and a steaming cup.
+    const hx = 250;
+    ctx.fillStyle = '#131017'; ctx.fillRect(hx - 14, counter - 74, 28, 74);
+    ctx.fillStyle = '#17131c'; ctx.fillRect(hx - 10, counter - 96, 20, 24);
+    ctx.fillStyle = '#3a2a1e'; ctx.fillRect(hx + 26, counter - 26, 10, 10);
+    ctx.fillStyle = '#54371f'; ctx.fillRect(hx + 26, counter - 30, 14, 4);
+    for (let s = 0; s < 3; s++) {
+      const t = this.time * .8 + s * 1.7;
+      ctx.fillStyle = 'rgba(230,240,246,.14)';
+      ctx.fillRect(hx + 31 + Math.sin(t * 2) * 3, counter - 38 - ((t * 16) % 34), 2, 2);
+    }
+    // Two hanging lamps, cones of warm light down to the counter.
+    for (const lx of [250, 470]) {
+      ctx.strokeStyle = '#1a1410'; ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, 108); ctx.stroke();
+      ctx.fillStyle = '#2a2018'; ctx.fillRect(lx - 14, 108, 28, 12);
+      const on = Math.sin(this.time * 7 + lx) > -.96;
+      ctx.fillStyle = on ? '#ffd9a0' : '#4a3a28';
+      ctx.beginPath(); ctx.arc(lx, 122, 5, 0, Math.PI * 2); ctx.fill();
+      if (on) {
+        const cone = ctx.createLinearGradient(0, 122, 0, counter);
+        cone.addColorStop(0, 'rgba(255,190,110,.16)'); cone.addColorStop(1, 'rgba(255,190,110,0)');
+        ctx.fillStyle = cone;
+        ctx.beginPath(); ctx.moveTo(lx - 6, 122); ctx.lineTo(lx + 6, 122);
+        ctx.lineTo(lx + 46, counter); ctx.lineTo(lx - 46, counter); ctx.closePath(); ctx.fill();
+      }
+    }
+    // Interior HUD: where you are, and how to leave.
+    ctx.fillStyle = 'rgba(2,8,16,.78)'; ctx.fillRect(18, 18, 200, 52);
+    ctx.font = '11px monospace'; ctx.fillStyle = '#e9c9a0'; ctx.fillText('THE CANTEEN', 30, 35);
+    ctx.font = '9px monospace'; ctx.fillStyle = '#8a7460'; ctx.fillText('LOS ANGELES / 2019 · RAIN ON GLASS', 30, 48);
+    ctx.fillStyle = '#e9d3a0'; ctx.font = 'bold 11px monospace';
+    ctx.fillText('TWO, PLEASE — SIT A WHILE', 30, 63);
+    ctx.font = '9px monospace'; ctx.fillStyle = '#6a7e8d';
+    ctx.fillText('B BACK TO THE STREET · F PHOTO · G ESPER', 30, 77);
+  }
+  // Film strip bottom-right; while open, the Esper viewer owns the frame.
+  drawEsper(ctx) {
+    if (!this.photos.length) return;
+    const w = 48, h = 30, gap = 6;
+    const x0 = this.width - 18 - this.photos.length * (w + gap), y0 = this.height - h - 14;
+    this.photos.forEach((p, i) => {
+      ctx.drawImage(p.canvas, x0 + i * (w + gap), y0, w, h);
+      ctx.strokeStyle = this.viewer?.index === i ? '#9fe8d8' : '#3a5462';
+      ctx.strokeRect(x0 + i * (w + gap) + .5, y0 + .5, w - 1, h - 1);
+    });
+    const v = this.viewer;
+    if (!v) return;
+    const p = this.photos[v.index];
+    const sw = 240 / v.zoom, sh = 150 / v.zoom;
+    const sx = Math.max(0, Math.min(240 - sw, v.x * 240 - sw / 2));
+    const sy = Math.max(0, Math.min(150 - sh, v.y * 150 - sh / 2));
+    const dw = 480, dh = 300, dx = (this.width - dw) / 2, dy = 118;
+    ctx.fillStyle = 'rgba(3,10,16,.88)'; ctx.fillRect(0, 0, this.width, this.height);
+    ctx.fillStyle = '#02131a'; ctx.fillRect(dx - 8, dy - 8, dw + 16, dh + 16);
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(p.canvas, sx, sy, sw, sh, dx, dy, dw, dh);
+    ctx.fillStyle = 'rgba(120,255,214,.06)';
+    for (let ly = dy; ly < dy + dh; ly += 4) ctx.fillRect(dx, ly, dw, 1);
+    ctx.strokeStyle = 'rgba(140,255,220,.45)';
+    ctx.strokeRect(dx + dw / 2 - 30, dy + dh / 2 - 30, 60, 60);
+    ctx.font = 'bold 10px monospace'; ctx.textAlign = 'left';
+    ctx.fillStyle = '#7dffc9';
+    ctx.fillText(`ESPER ${String(v.index + 1).padStart(2, '0')} / ${String(this.photos.length).padStart(2, '0')}  ZOOM ${v.zoom.toFixed(1)}x`, dx, dy - 14);
+    ctx.fillStyle = '#c9fff0'; ctx.font = '10px monospace';
+    ctx.fillText(p.log, dx, dy + dh + 18);
+    ctx.font = '9px monospace'; ctx.fillStyle = '#5f8a7f';
+    ctx.fillText('ARROWS PAN · Q/E ZOOM · WHEEL ZOOM · G CLOSE', dx, dy + dh + 32);
+    ctx.textAlign = 'left';
   }
   drawWorld(ctx,solid=false) {
     ctx.imageSmoothingEnabled = false;
@@ -417,6 +656,45 @@ export class NightStage {
       ctx.fillStyle = 'rgba(0,0,0,.4)';
       ctx.fillRect(l.x0 + 8, l.y + 16, w - 16, 3);
     }
+    // Uptown sanctuary: a noodle stall, warm light against all the cyan.
+    const nx = ZEN.noodleX, ny = this.platform.y;
+    ctx.fillStyle = '#0c1219'; ctx.fillRect(nx - 44, ny - 78, 88, 78);
+    ctx.fillStyle = '#131b26'; ctx.fillRect(nx - 46, ny - 86, 92, 10);
+    const flick = Math.sin(this.time * 11) > -.92;
+    ctx.fillStyle = flick ? '#ffd9a0' : '#5a4a38'; // window light
+    ctx.fillRect(nx - 34, ny - 62, 68, 30);
+    ctx.fillStyle = '#1a1210';
+    for (let bx = nx - 30; bx < nx + 34; bx += 12) ctx.fillRect(bx, ny - 62, 3, 30);
+    ctx.fillStyle = '#0c1219'; ctx.fillRect(nx - 40, ny - 58, 6, 58); ctx.fillRect(nx + 34, ny - 58, 6, 58);
+    ctx.fillStyle = 'rgba(255,196,120,.07)'; ctx.fillRect(nx - 52, ny - 2, 104, 3);
+    if (flick) {
+      ctx.font = 'bold 8px monospace'; ctx.textAlign = 'center';
+      ctx.fillStyle = '#ff9d6b'; ctx.fillText('NOODLES', nx, ny - 92);
+      ctx.textAlign = 'left';
+    }
+    for (let s = 0; s < 3; s++) {
+      const t = this.time * .9 + s * 2.1;
+      ctx.fillStyle = 'rgba(226,238,244,.16)';
+      ctx.fillRect(nx - 10 + Math.sin(t) * 9 + s * 9, ny - 70 - ((t * 14) % 40), 3, 3);
+    }
+    // Sector gate: the line between the stroll and the hunt.
+    const gate = ZEN.gate, pulse = .5 + .5 * Math.sin(this.time * 2.2);
+    ctx.save();
+    ctx.globalAlpha = .5 + pulse * .5;
+    ctx.fillStyle = '#ff5a7a';
+    for (let gy = 120; gy < ny; gy += 12) ctx.fillRect(gate - 1, gy, 2, 7);
+    ctx.globalAlpha = .12 + pulse * .1;
+    ctx.fillRect(gate - 7, 120, 14, ny - 120);
+    ctx.restore();
+    ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center';
+    ctx.fillStyle = `rgba(255,122,139,${.55 + pulse * .45})`;
+    ctx.fillText('SECTOR 10', gate, 112);
+    if (this.state === 'strolling') {
+      ctx.font = '8px monospace';
+      ctx.fillStyle = `rgba(255,164,178,${.35 + pulse * .3})`;
+      ctx.fillText('WALK THROUGH TO HUNT', gate, 102);
+    }
+    ctx.textAlign = 'left';
     if(!solid)this.ambientRain.draw(ctx);
     for (const f of this.actors) {
       if (f.dead && f.deathTime > .75 || f.respawnTimer > 0) continue;
@@ -498,8 +776,16 @@ export class NightStage {
     ctx.font='9px monospace';ctx.fillStyle='#647e8d';ctx.fillText('SECTOR 09   /   NIGHT SHIFT',30,48);
     ctx.fillStyle = this.frenzyT > 0 ? '#ff5a7a' : '#d4e9ed';
     ctx.font = 'bold 13px monospace';
-    const runLine = `${this.stats.score.toLocaleString('en-US')} PTS   ${this.fmtTime(this.time - (this.runStart ?? this.time))}`;
+    const strolling = this.state === 'strolling';
+    const runLine = strolling
+      ? 'UPTOWN STROLL · RAIN · NOODLES · NO CASES'
+      : `${this.stats.score.toLocaleString('en-US')} PTS   ${this.fmtTime(this.time - (this.runStart ?? this.time))}`;
+    ctx.fillStyle = strolling ? '#8ee8f2' : (this.frenzyT > 0 ? '#ff5a7a' : '#d4e9ed');
     ctx.fillText(runLine, 30, 63);
+    if (strolling) {
+      ctx.font = '9px monospace'; ctx.fillStyle = '#647e8d';
+      ctx.fillText('F PHOTO · G ESPER · B CANTEEN · WALK RIGHT PAST THE GATE TO HUNT', 30, 77);
+    }
     if (this.challenge) {
       ctx.font = '9px monospace';ctx.fillStyle = '#e9d3a0';
       ctx.fillText(`${this.challenge.label} ${this.challenge.target.toLocaleString('en-US')}`, 188, 63);

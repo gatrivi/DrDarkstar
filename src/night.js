@@ -23,8 +23,8 @@ async function enableSound() {
 }
 function begin() {
   if (!stage.atlas) return;
-  if (stage.state === 'paused') stage.state = 'playing';
-  else stage.reset();
+  if (stage.state === 'paused') stage.state = stage.resumeState ?? 'strolling';
+  else if (stage.state !== 'strolling') stage.reset();
   stage.runStart = stage.time;
   stage.waveStart = stage.time;
   clearInput(); focusGame();
@@ -32,8 +32,8 @@ function begin() {
   updateUI(true);
 }
 function pause() {
-  if (stage.state === 'playing') stage.state = 'paused';
-  else if (stage.state === 'paused') stage.state = 'playing';
+  if (stage.state === 'playing' || stage.state === 'strolling') { stage.resumeState = stage.state; stage.state = 'paused'; }
+  else if (stage.state === 'paused') stage.state = stage.resumeState ?? 'strolling';
   clearInput(); updateUI(true);
 }
 function updateUI(force = false) {
@@ -48,17 +48,17 @@ function updateUI(force = false) {
   $('#lives').textContent = Array.from({length:Math.max(0,p.stocks)},()=>'●').join(' ');
   $('#lives').setAttribute('aria-label', `${Math.max(0,p.stocks)} lives`);
   $('#kills').textContent = stage.stats.kills;
-  $('#wave').textContent = `WAVE 0${stage.wave} / 02`;
+  $('#wave').textContent = stage.state === 'strolling' ? 'UPTOWN' : `WAVE 0${stage.wave} / 02`;
   $('#score').textContent = stage.stats.score.toLocaleString('en-US');
   document.querySelectorAll('[data-hunter]').forEach(b=>b.setAttribute('aria-pressed', String(b.dataset.hunter===p.kind)));
   $('#particles').setAttribute('aria-pressed',String(stage.worldRainEnabled));
   $('#layout').setAttribute('aria-pressed',String(stage.layout==='rooftops'));
   $('#layout').textContent = stage.layout==='rooftops' ? 'STREET' : 'ROOFTOPS';
   $('#sound').setAttribute('aria-pressed',String(soundOn)); $('#sound').textContent=soundOn?'SOUND ON':'SOUND OFF';
-  $('#pause').disabled = !['playing','paused'].includes(stage.state);
+  $('#pause').disabled = !['playing', 'paused', 'strolling'].includes(stage.state);
   $('#pause').textContent = stage.state === 'paused' ? 'RESUME' : 'PAUSE';
   $('#restart').disabled = !stage.atlas;
-  overlay.hidden = stage.state === 'playing';
+  overlay.hidden = ['playing', 'strolling'].includes(stage.state);
   $('#choose').hidden = !['ready','won','lost'].includes(stage.state);
   $('#bounty-choose').hidden = stage.state !== 'bounty';
   $('#share-row').hidden = !['won','lost'].includes(stage.state);
@@ -66,7 +66,7 @@ function updateUI(force = false) {
   const best = stage.board[0];
   const bestLine = best ? `DISTRICT BEST ${best.score.toLocaleString('en-US')} (${best.hunter})` : 'NO DISTRICT BEST YET — SET ONE';
   const messages = {
-    ready: ['SECTOR 09 / OPEN CASE','The city has<br>two kinds of monsters.',`Hunt the vampires. Retire the replicants.<br>Choose a hunter. Clear two waves.<br>${bestLine}.`,'ENTER THE RAIN'],
+    ready: ['SECTOR 09 / UPTOWN', 'It always rains.<br>That is the point.', `Start slow: photos at the noodle bar, rain on the rooftops.<br>The hunt begins when you walk past the sector gate.<br>${bestLine}.`,'STEP INTO THE RAIN'],
     paused: ['PATROL / ON HOLD','The city can wait.','Your hunt is paused.<br>Press P or resume when ready.','RESUME HUNT'],
     bounty: ['WAVE 01 CLEAR / NAME YOUR BONUS','Pick your poison.',`Wave 02 reloads with your bounty active.<br>${bestLine}.`,''],
     won: ['CASE CLOSED / 06 RETIRED','The district is clear.','Vampires to ash. Replicants retired.<br>Another night in Los Angeles.','HUNT AGAIN'],
@@ -77,7 +77,9 @@ function updateUI(force = false) {
     $('#overlay-eyebrow').textContent=message[0]; $('#overlay-title').innerHTML=message[1];
     $('#overlay-copy').innerHTML=message[2];start.textContent=message[3];
   }
-  status.textContent = stage.state === 'playing'
+  status.textContent = stage.state === 'strolling'
+    ? `${p.name} · uptown stroll · F photo · G esper viewer · walk right past the gate to hunt`
+    : stage.state === 'playing'
     ? `${p.name} · ${p.kind === 'blade' ? 'J sword / L shuriken' : 'J or L blaster'} · E block · ${6-stage.stats.kills} hostiles remaining`
     : stage.state === 'won' ? summaryLine(true)
     : stage.state === 'lost' ? summaryLine(false)
@@ -149,13 +151,18 @@ document.querySelectorAll('[data-key]').forEach(button=>{
   const release=()=>input.down.delete(button.dataset.key);
   button.addEventListener('pointerdown',event=>{
     event.preventDefault();button.setPointerCapture(event.pointerId);
-    if(stage.state!=='playing')return;
+    if(!['playing','strolling'].includes(stage.state))return;
     const code=button.dataset.key;if(!input.down.has(code))input.pressed.add(code);input.down.add(code);
   });
   button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);button.addEventListener('lostpointercapture',release);
 });
-addEventListener('blur',()=>{if(stage.state==='playing'){stage.state='paused';clearInput();updateUI(true);}});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&stage.state==='playing'){stage.state='paused';clearInput();updateUI(true);}});
+addEventListener('blur',()=>{if(['playing','strolling'].includes(stage.state)){stage.resumeState=stage.state;stage.state='paused';clearInput();updateUI(true);}});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&['playing','strolling'].includes(stage.state)){stage.resumeState=stage.state;stage.state='paused';clearInput();updateUI(true);}});
+canvas.addEventListener('wheel',(e)=>{
+  if(!stage.viewer)return;
+  e.preventDefault();
+  stage.viewer.zoom=Math.max(1.2,Math.min(6,stage.viewer.zoom*(e.deltaY<0?1.15:.87)));
+},{passive:false});
 
 // ---------------------------------------------------------------------------
 // 16-bit night drive: a minor-key synth arp over a Genesis bass, half-time
@@ -173,36 +180,42 @@ const chipHz = (n) => 55 * Math.pow(2, n / 12);       // n=0 -> A1
 let chipStep = 0, chipNext = 0;
 function chipPump() {
   const ctx = sound.context;
-  if (!ctx || !soundOn || stage.state !== 'playing') { chipNext = 0; return; }
+  const zen = stage.state === 'strolling';
+  if (!ctx || !soundOn || !(stage.state === 'playing' || zen)) { chipNext = 0; return; }
   const t = ctx.currentTime;
   if (!chipNext || chipNext < t - 0.4) chipNext = t + 0.06;
   while (chipNext < t + 0.18) {
-    chipPlay(chipStep, chipNext);
+    chipPlay(chipStep, chipNext, zen);
     chipStep = (chipStep + 1) % 32;
     chipNext += CHIP_STEP;
   }
 }
-function chipPlay(step, when) {
+function chipPlay(step, when, zen = false) {
   const bar = Math.floor(step / 4) % 8;
   const bass = CHIP_BASS[bar];
+  const soft = zen ? .5 : 1; // uptown: half the muscle, same melancholy
   // Bass: fat detuned saw on every quarter.
   if (step % 4 === 0) {
-    sound.tone(chipHz(bass), .34, .034, sound.music, 'sawtooth', chipHz(bass) * .998, when);
-    sound.tone(chipHz(bass) * 2.008, .3, .012, sound.music, 'sawtooth', chipHz(bass) * 2, when);
+    sound.tone(chipHz(bass), .34, .034 * soft, sound.music, 'sawtooth', chipHz(bass) * .998, when);
+    sound.tone(chipHz(bass) * 2.008, .3, .012 * soft, sound.music, 'sawtooth', chipHz(bass) * 2, when);
   }
-  // Arp: quiet square 16ths.
-  const arp = bass + CHIP_ARP[step % 4];
-  sound.tone(chipHz(arp), .1, .013, sound.music, 'square', chipHz(arp), when);
-  // Kick on the floor, snare-ish tick on the backbeat.
-  if (step % 8 === 0) sound.tone(110, .12, .05, sound.music, 'sine', 42, when);
-  if (step % 8 === 4) sound.tone(190, .06, .022, sound.music, 'square', 150, when);
-  // Hat ticks every off-8th.
-  if (step % 2 === 1) sound.tone(6400, .02, .006, sound.music, 'square', 5200, when);
+  // Arp: quiet square 16ths — half-time when strolling.
+  if (!zen || step % 2 === 0) {
+    const arp = bass + CHIP_ARP[step % 4];
+    sound.tone(chipHz(arp), .1, .013 * soft, sound.music, 'square', chipHz(arp), when);
+  }
+  // Kick on the floor, snare-ish tick on the backbeat. Downtown only:
+  // uptown keeps the drums out so the rain can be heard.
+  if (!zen) {
+    if (step % 8 === 0) sound.tone(110, .12, .05, sound.music, 'sine', 42, when);
+    if (step % 8 === 4) sound.tone(190, .06, .022, sound.music, 'square', 150, when);
+    if (step % 2 === 1) sound.tone(6400, .02, .006, sound.music, 'square', 5200, when);
+  }
   // Lead: sparse long notes with a soft detune.
   const lead = CHIP_LEAD.find((l) => l.step === step);
   if (lead) {
-    sound.tone(chipHz(lead.note), .5, .018, sound.music, 'triangle', chipHz(lead.note) * .997, when);
-    sound.tone(chipHz(lead.note) * 1.004, .5, .01, sound.music, 'triangle', chipHz(lead.note), when + .02);
+    sound.tone(chipHz(lead.note), .5, .018 * soft, sound.music, 'triangle', chipHz(lead.note) * .997, when);
+    sound.tone(chipHz(lead.note) * 1.004, .5, .01 * soft, sound.music, 'triangle', chipHz(lead.note), when + .02);
   }
 }
 
@@ -211,12 +224,15 @@ export const loop = new GameLoop({
     if(input.consume('Escape')){location.href='./games.html';return;}
     if(input.consume('KeyP'))pause();
     if(input.consume('KeyC'))stage.swap();
+    if(input.consume('KeyB'))stage.toggleCanteen();
+    if(input.consume('KeyF'))stage.snapPhoto();
+    if(input.consume('KeyG'))stage.toggleViewer();
     if(input.consume('KeyT')){$('#layout').click();}
     if(stage.state==='bounty'){
       for(const [code,id] of [['Digit1','nightowl'],['Digit2','untouchable'],['Digit3','speedtrap']]){
         if(input.consume(code)&&stage.setBounty(id)){clearInput();focusGame();updateUI(true);break;}
       }
-    } else if(stage.state!=='playing' && (input.consume('Enter') || input.consume('Space')))begin();
+    } else if(['ready','won','lost'].includes(stage.state) && (input.consume('Enter') || input.consume('Space')))begin();
     const levels = sound.update(delta);
     chipPump();
     stage.update(delta, levels);
