@@ -103,7 +103,7 @@ export class SmashStage {
 
   async load() {
     await Promise.all([this.andy.load(), this.dummy.load()]);
-    this.andy.scale = this.dummy.scale = this.fighterScale();
+    for (const f of [this.andy, this.dummy]) f.scale = this.fighterScale() * (f.unitScale ?? 1);
   }
 
   fighterScale() {
@@ -115,7 +115,7 @@ export class SmashStage {
     this.width = width; this.height = height;
     for (const f of [this.andy, this.dummy]) {
       f.x *= sx; f.y *= sy;
-      f.scale = this.fighterScale();
+      f.scale = this.fighterScale() * (f.unitScale ?? 1);
     }
     this.ambientRain.resize(width, height);
     for (const rain of this.rains) {

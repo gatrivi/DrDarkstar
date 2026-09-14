@@ -1,5 +1,6 @@
 import { AnimatedSprite } from '../AnimatedSprite.js';
 import { MOVES, SHIELD, MAX_CHARGE } from './Moveset.js';
+import { ENGINE_POSES, loadAndySheet } from './AndySheet.js';
 
 // Dual control schemes so two cousins can fool around on one keyboard.
 // P1 (left side): A/D move · W jump · S shield/fast-fall · J jab+tilts ·
@@ -18,10 +19,9 @@ export const P2_BINDINGS = {
   up: ['ArrowUp'], down: ['ArrowDown'],
 };
 
-// Hand-drawn Game Boy era spritesheet: 24 x 32 pixel frames, one per pose.
-// Andy's likeness comes from the palette: skin/hair are sampled from andy.jpeg
-// at load time; the wardrobe is his — Akatsuki-style cloud jacket + Link cap.
-const POSES = ['idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard', 'punch1', 'punch2', 'punch3', 'ftilt', 'utilt', 'dtilt', 'windup', 'swing', 'usmash', 'dsmash', 'serve', 'super', 'whistle'];
+// Frame order shared by the procedural fallback sheet and the generated art
+// strip (AndySheet composes the art in this exact order).
+const POSES = ENGINE_POSES;
 export const ANDY_POSES = POSES;
 const FRAME_INDEX = Object.fromEntries(POSES.map((name, i) => [name, i]));
 const PW = 24, PH = 32;
@@ -209,6 +209,16 @@ function drawPose(ctx, ox, p, pose) {
       R(14, 8, 3, 2, p.jacket); R(13, 7, 2, 2, p.skin);
       R(6, 12, 2, 5, p.jacket);
       break;
+    case 'hurt': // recoil — arms flung back, impact ticks
+      R(4, 11, 2, 5, p.jacket); R(4, 16, 2, 2, p.skin);
+      R(18, 11, 2, 5, p.jacket); R(18, 16, 2, 2, p.skin);
+      R(1, 6, 1, 1, '#fff'); R(22, 8, 1, 1, '#fff'); R(20, 4, 1, 1, '#fff');
+      break;
+    case 'victory': // triumphant fist up with sparks
+      R(16, 2, 2, 9, p.jacket); R(16, 0, 2, 2, p.skin);
+      R(6, 12, 2, 5, p.jacket); R(6, 17, 2, 2, p.skin);
+      R(13, 2, 1, 1, '#ffd34d'); R(20, 4, 1, 1, '#ffd34d'); R(14, 6, 1, 1, '#fff');
+      break;
   }
 }
 
@@ -280,6 +290,8 @@ export class AndyFighter extends AnimatedSprite {
     this.tapTimer = 0; this.tapDir = 0; // double-tap dash detection
     this.respawnTimer = 0;
     this.moveSeed = Math.random() * 10;
+    this.unitScale = 1;    // art sheets normalize world size through this
+    this.celebrating = false; // victory pose when the match is won
     // Melee defense kit.
     this.shieldHP = SHIELD.max;
     this.shielding = false;
@@ -292,9 +304,10 @@ export class AndyFighter extends AnimatedSprite {
     this.lastMoveTime = 9;
   }
 
-  applySheet({ sheet, pw, ph, frames }) {
+  applySheet({ sheet, pw, ph, frames, unitScale }) {
     this.sheet = sheet;
     this.frameWidth = pw; this.frameHeight = ph; this.frames = frames;
+    this.unitScale = unitScale ?? 1;
     this.maskCache.clear();
     this.maskCanvas.width = pw; this.maskCanvas.height = ph;
     this.setFrame(0, true);
@@ -305,7 +318,12 @@ export class AndyFighter extends AnimatedSprite {
     if (!this.tint) {
       try { Object.assign(palette, await sampleTones()); } catch { /* keep defaults */ }
     }
-    this.applySheet(buildSpriteSheet(palette));
+    // Generated art first (falls back to the procedural sheet offline).
+    try {
+      this.applySheet(await loadAndySheet({ tint: !!this.tint }));
+    } catch {
+      this.applySheet(buildSpriteSheet(palette));
+    }
   }
 
   get hurtbox() {
@@ -712,6 +730,10 @@ export class AndyFighter extends AnimatedSprite {
       } else {
         this.setFrame(this.frameIndex.idle ?? 0);
       }
+    } else if (this.hitstun > 0 && this.frameIndex.hurt != null) {
+      this.setFrame(this.frameIndex.hurt);
+    } else if (this.celebrating && this.frameIndex.victory != null) {
+      this.setFrame(this.frameIndex.victory);
     } else if (this.shielding) {
       if (this.frameIndex.guard != null) this.setFrame(this.frameIndex.guard);
     } else if (this.dashTimer > 0 && this.frameIndex.dash) {

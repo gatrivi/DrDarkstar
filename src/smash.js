@@ -95,6 +95,7 @@ resize();
 document.querySelector('#reset').onclick = () => {
   for (const f of [stage.andy, stage.dummy]) {
     f.stocks = 3;
+    f.celebrating = false;
     f.respawn(stage);
   }
   status.textContent = `Rematch! ${stage.andy.name} vs ${stage.mode === 'versus' ? 'P2' : 'DUMMY'}`;
@@ -115,12 +116,14 @@ new GameLoop({
     if (!paused) {
       stage.update(delta, sound.update(delta));
       if (modeButton.textContent !== modeLabel()) modeButton.textContent = modeLabel();
-      if (stage.dummy.stocks <= 0 || stage.andy.stocks <= 0) {
-        const winner = stage.andy.stocks > 0
-          ? (stage.mode === 'versus' ? `P1 · ${stage.andy.name}` : stage.andy.name)
-          : (stage.mode === 'versus' ? `P2 · ${stage.dummy.name}` : stage.dummy.name);
-        status.textContent = `${winner} WINS! — press Reset match for a rematch`;
-      } else if (status.textContent.startsWith('Rematch')) {
+    if (stage.dummy.stocks <= 0 || stage.andy.stocks <= 0) {
+      const winner = stage.andy.stocks > 0 ? stage.andy : stage.dummy;
+      winner.celebrating = true;
+      const winnerName = stage.andy.stocks > 0
+        ? (stage.mode === 'versus' ? `P1 · ${stage.andy.name}` : stage.andy.name)
+        : (stage.mode === 'versus' ? `P2 · ${stage.dummy.name}` : stage.dummy.name);
+      status.textContent = `${winnerName} WINS! — press Reset match for a rematch`;
+    } else if (status.textContent.startsWith('Rematch')) {
         status.textContent = versusStatus();
       } else if (status.textContent.includes('WINS')) {
         status.textContent = versusStatus();
