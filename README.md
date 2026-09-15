@@ -14,7 +14,17 @@ node server.mjs
 
 Open http://localhost:8080.
 
-`npm run build` copies the three games and their required assets into `dist/`. `vercel.json` selects this static output and skips dependency installation. Push to `main` to use the existing Vercel Git autodeploy. To preview the build locally, run `node server.mjs dist` after stopping the source server (or set `PORT` to another port).
+`npm run build` copies the four games and their required assets into `dist/`. `vercel.json` selects this static output and skips dependency installation. Push to `main` to use the existing Vercel Git autodeploy. To preview the build locally, run `node server.mjs dist` after stopping the source server (or set `PORT` to another port).
+
+### The Root Archive — fourth demo
+
+Open [The Root Archive](http://localhost:8080/lost.html), or choose **004 / Lost Expedition** in Game Select. A Generations Lost-inspired exploration area built from [one generated tileset](assets/lost-area/README.md), using the new brown-haired, green-eyed relic hunter. Three connected ruin chambers feature climbing routes, a crouch tunnel, water, checkpoint beacons, readable murals and three whip-powered relays. Awaken every relay, then enter the archive with E.
+
+**A/D or arrows:** move. **Space/W/Up:** jump. **S/Down:** crouch. **J:** energy whip. **E:** read/enter. **M:** map. **P:** pause. **Esc:** game select. On-screen controls support touch. Checkpoints last for the current expedition; reloading starts fresh.
+
+The woodland pass adds layered trees, roots, ferns, vines and ruined arches from the existing foliage sheet. Jump onto the log and stone perch near the entrance, cross the fallen-log bridge, and use E near the small lights to uncover three optional memories. The map marks the extra platforms and memories; discovering them is optional for opening the archive.
+
+`npm test` includes traversal and collision checks. `node tests/lost-browser.mjs` checks keyboard and pointer controls, resource loading, woodland interactions and mobile layout; screenshots go to `output/lost-area/`.
 
 ### Night Hunters — third demo
 

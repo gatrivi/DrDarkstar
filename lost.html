@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#081311">
+  <link rel="icon" href="data:,">
+  <title>The Root Archive · Dr Darkstar</title>
+  <link rel="stylesheet" href="./src/lost.css">
+</head>
+<body>
+  <main>
+    <header><a class="back" href="./games.html">← GAME SELECT</a><span class="edition">004 / LOST EXPEDITION</span><button id="pause" type="button">PAUSE</button></header>
+    <section class="heading"><div><p class="eyebrow">BENEATH THE CANOPY, SOMETHING REMEMBERS.</p><h1>THE ROOT ARCHIVE</h1></div><p class="objective">Wake the three relays.<br>Find what the roots buried.</p></section>
+    <div class="viewport">
+      <canvas id="lost-game" width="960" height="540" tabindex="0" aria-label="The Root Archive exploration game. Move with A and D, jump with Space, crouch with S, whip with J, interact with E."></canvas>
+      <div id="loading" role="status">ENTERING THE UNDERGROWTH…</div>
+    </div>
+    <div class="readout"><span id="zone">01 / THE ROOT GATE</span><span id="relays">RELAYS 0 / 3</span><span id="memories">MEMORIES 0 / 3</span><button id="map" aria-pressed="false" type="button">MAP · M</button></div>
+    <p id="status" role="status" aria-live="polite">Loading the archive…</p>
+    <div class="controls" aria-label="Game controls">
+      <div><button data-key="left" aria-label="Move left">←</button><button data-key="right" aria-label="Move right">→</button><button data-key="down" aria-label="Crouch">↓</button></div>
+      <div><button data-key="jump">JUMP <small>SPACE</small></button><button data-key="whip">WHIP <small>J</small></button><button data-key="interact">READ / ENTER <small>E</small></button></div>
+    </div>
+    <footer><span>A / D MOVE · S CROUCH · SPACE JUMP · J WHIP · E READ / ENTER</span><button id="restart" type="button">NEW EXPEDITION</button></footer>
+  </main>
+  <script type="module" src="./src/lost.js"></script>
+</body>
+</html>

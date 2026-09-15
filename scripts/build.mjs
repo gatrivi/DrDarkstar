@@ -13,7 +13,7 @@ await mkdir(output, { recursive: true });
 
 // Explicit runtime inputs: no local recordings, reference work, or test output.
 const entries = [
-  'index.html', 'games.html', 'rain.html', 'smash.html', 'night.html',
+  'index.html', 'games.html', 'rain.html', 'smash.html', 'night.html', 'lost.html',
   'src', 'andy.jpeg',
   'assets/smash-cousins-thumbnail.png',
   'assets/night-hunters-thumbnail.jpg',
@@ -23,10 +23,13 @@ const entries = [
   'assets/night-hunters/city.png',
   'assets/night-hunters/sprites.png',
   'assets/night-hunters/throw-guard-v2.png',
+  'assets/night-hunters/relic-hunter/relic-hunter-spritesheet-v1.png',
+  'assets/lost-area/tileset-v1.png',
+  'assets/lost-area/foliage-props-v1.png',
 ];
 for (const entry of entries) {
   const destination = path.join(output, entry);
   await mkdir(path.dirname(destination), { recursive: true });
   await cp(path.join(root, entry), destination, { recursive: true });
 }
-console.log('Built three games and their runtime assets in dist/');
+console.log('Built four games and their runtime assets in dist/');
