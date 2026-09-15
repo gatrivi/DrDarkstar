@@ -5,7 +5,16 @@ export const ZEN = {
   noodleX: 108,       // the noodle bar stall on the uptown street
   noodleRadius: 52,   // interactable warmth zone around the stall
   photoCap: 6,        // Esper film strip holds six exposures
+  relicGate: 92,      // x where the west breach into the Root Archive opens
 };
+
+// Walking west, the storm thins before the breach — the signal that another
+// world is near. ~0.2 at the breach itself, 1 further than 230px east of it.
+export function mellowLevel(x) {
+  const t = Math.max(0, Math.min(1, (x - ZEN.relicGate) / 138));
+  return .2 + .8 * t;
+}
+export function atBreach(x) { return x <= ZEN.relicGate; }
 
 export const PHOTO_LOGS = [
   'ALL THOSE MOMENTS LOST IN TEARS, LIKE RAIN IN TIME',

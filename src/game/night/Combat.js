@@ -18,6 +18,7 @@ export const LAYOUTS = {
 export const ROSTER = {
   blade: { name: 'BLADE', row: 0, limit: 150, color: '#ff647b', weapon: 'SILVER / SWORD' },
   deckard: { name: 'DECKARD', row: 1, limit: 150, color: '#f5bd78', weapon: 'PK-D / BLASTER' },
+  relic: { name: 'RELIC HUNTER', row: 4, limit: 150, color: '#7fffe0', weapon: 'E-RAD / WHIP' },
   vampire: { name: 'VAMPIRE', row: 2, limit: 52, color: '#e86d93' },
   replicant: { name: 'REPLICANT', row: 3, limit: 66, color: '#79dbe5' },
 };
@@ -26,6 +27,8 @@ export const NIGHT_MOVES = {
   windup: { pose: 1, duration: Infinity },
   golfswing: { pose: 2, duration: .52, active: [.12, .25], reach: 104, damage: 23, base: 240, scaling: 2.1, angle: -.43 },
   serve: { pose: 2, duration: .40, active: [.14, .20], projectile: true, damage: 14, base: 120, scaling: 1.0, angle: -.2 },
+  // The relic hunter's e-rad: long cast, whip-crack timing, Monobe lineage.
+  relicWhip: { pose: 1, duration: .56, active: [.26, .40], reach: 116, damage: 17, base: 185, scaling: 1.35, angle: -.22 },
   roll: { pose: 3, duration: .34 },
   block: { pose: 9, duration: Infinity },
   claw: { pose: 1, duration: .72, active: [.38, .51], reach: 54, damage: 10, base: 165, scaling: .6, angle: -.28 },

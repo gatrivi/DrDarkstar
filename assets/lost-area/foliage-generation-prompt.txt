@@ -1,0 +1,32 @@
+Use case: stylized-concept.
+Asset type: ONE companion environmental sprite / foliage asset atlas for a side-scrolling exploration game. This is an additional vegetation pass for the existing Root Archive terrain tileset shown in this conversation; use that image ONLY as reference for pixel technique, moss/ochre/teal palette and aged alien stonework. Generate a NEW separate image.
+
+Art direction: a heartfelt return to the mysterious overgrown alien wilderness of Generations Lost on Sega Genesis, the feeling of stepping back into a world whose story was left unfinished. Nature swallowing ancient technology, humid emerald canopy, monumental gnarled trees, tangled buttress roots, curious fossil-like machines. Use that game as the nostalgic starting point while designing fresh environmental shapes for an original successor world. Brooding, intricate, welcoming to exploration; rich 1994 16-bit pixel art, deliberate hard-edged pixel clusters, controlled ordered dithering, strongly readable silhouettes, no smooth digital painting. Closely match the earlier Root Archive tiles' warm ochre bark and stone, bronze remnants, moss greens and blue-black/petroleum teal shadows. Tiny cyan fungi highlights only; foliage should dominate.
+
+Deliver ONE square PNG with TRUE TRANSPARENT ALPHA, ideally 2048x2048, arranged in exactly FOUR columns and FOUR rows of equal square asset cells. Sixteen clearly separated cutout props. Every prop stays inside its own cell with 8 percent transparent padding around it; no overlap, no painted checkerboard, no backdrop, no floor rectangle, no cast shadows, no grid lines, labels, lettering, logos or watermark. Full orthographic SIDE VIEW for a 2D platformer, never isometric, never a top-down view. Detailed but legible at a native scale around 64 to 96 pixels per prop, enlarged in clean pixel blocks. Props can have different physical sizes; keep the visual pixel density consistent. Tall trees fully fit, roots and canopy tips uncut. No characters.
+
+ROW 1 — four complete TREE silhouettes:
+1. Ancient broad-canopy jungle tree, muscular twisting ochre trunk, umbrella crown of layered deep green leaves, dramatic spreading buttress roots.
+2. Taller asymmetrical alien forest tree with forked trunk, moss-covered limbs and drooping fern growth, open gaps in canopy.
+3. Mostly bare, immense old tree with weathered trunk, twisted branches, a few fern tufts and subtle bronze machine ribs fused into its roots.
+4. Distant forest tree silhouette for parallax, same ecological family but simplified low-contrast dark teal foliage and trunk, no bright highlights.
+
+ROW 2 — four modular TREE / ROOT pieces for building larger scenes:
+1. Straight thick vertical bark-trunk middle segment, upper and lower cut profiles aligned and compatible for manual stacking; no leaves.
+2. Forked upper-trunk junction with two branching limbs and hanging moss; trunk bottom matches the previous piece.
+3. Wide buttress-root base with a hollow crawl-through arch under the roots, completely transparent opening.
+4. Long broad leafy canopy cluster with hanging twigs, a usable top-of-tree module that can overlap adjacent copies.
+
+ROW 3 — four UNDERGROWTH / HANGING pieces:
+1. A full graceful fern clump with spreading fronds, moss at base.
+2. A small cluster of decaying stump, shelf mushrooms and two very subtly cyan bioluminescent fungi.
+3. Three hanging vine strands of varying length, twisted woody vine and occasional small leaves, no ceiling block.
+4. Hanging root curtain interwoven with moss and leafy tendrils, irregular scalloped silhouette, no rectangular wall.
+
+ROW 4 — four EXPLORATION LANDMARK / GROUND pieces:
+1. Fallen hollow tree log, wide horizontal trunk with mossy top and broken branch, potential walkable bridge.
+2. Broken ancient alien stone arch strangled by roots, ochre carved blocks, tiny worn bronze inset, open transparent center.
+3. Floating mossy stone ledge with a flat clearly walkable horizontal upper surface and a few hanging roots below, reusable platform silhouette.
+4. Wide low ground-cover strip of ferns, leaf litter, exposed roots and two small rocks, transparent above and between plants, useful as foreground dressing.
+
+Composition priorities: lush memorable trees, dimensional bark pixel clusters, real negative spaces through branches and roots, distinct silhouettes for each asset, coherent side-view environmental kit. The transparent spaces matter for layering over the prior tilemap. No new screenshot or composed game scene; only these sixteen reusable assets.

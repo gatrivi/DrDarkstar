@@ -21,10 +21,11 @@ export function loadImage(url) {
   });
 }
 export async function loadAtlas() {
-  const [image, city, extras] = await Promise.all([
+  const [image, city, extras, relic] = await Promise.all([
     loadImage(new URL('../../../assets/night-hunters/sprites.png', import.meta.url)),
     loadImage(new URL('../../../assets/night-hunters/city.png', import.meta.url)),
     loadImage(new URL('../../../assets/night-hunters/throw-guard-v2.png', import.meta.url)),
+    loadImage(new URL('../../../assets/night-hunters/relic-hunter/relic-hunter-spritesheet-v1.png', import.meta.url)),
   ]);
   const sheets = CROPS.map((row, index) => {
     const sheet = document.createElement('canvas');
@@ -59,6 +60,29 @@ export async function loadAtlas() {
     if(index<2) EXTRA_CROPS[index===0?1:2].forEach((crop,i)=>extraFrame(crop,9+i));
     return { sheet, pw, ph, frames: index<2 ? 12 : 6 };
   });
+  // Relic hunter: the 16-pose Generations Lost concept sheet, normalized onto
+  // the same 12-frame shared grid (center x=58, boots y=79) as rows 0/1.
+  // Source pose per engine frame: idle, whip-windup, whip-cast, hurt, walkA,
+  // walkB, crouch, dash, jump, guard, whip-impact, whip-recovery.
+  const RELIC_CROPS = [
+    [65,30,170,296,150,322],[32,636,205,298,135,928],[288,682,325,251,409,928],[1017,971,203,254,1125,1218],
+    [368,32,205,296,465,322],[671,35,222,293,777,322],[699,460,169,173,781,628],[961,80,278,248,1100,322],
+    [45,336,222,297,150,628],[672,978,215,247,777,1218],[610,720,390,214,739,928],[1020,680,233,254,1118,928],
+  ];
+  const relicSheet = document.createElement('canvas');
+  const rpw = 116, rph = 80;
+  relicSheet.width = rpw * 12; relicSheet.height = rph;
+  const rctx = relicSheet.getContext('2d');
+  rctx.imageSmoothingEnabled = false;
+  RELIC_CROPS.forEach(([sx, sy, sw, sh, ax, ay], frame) => {
+    rctx.save();
+    rctx.beginPath(); rctx.rect(frame * rpw, 0, rpw, rph); rctx.clip();
+    rctx.drawImage(relic, sx, sy, sw, sh,
+      frame * rpw + 58 - (ax - sx) * .205, Math.round(79 - (ay - sy) * .205),
+      Math.round(sw * .205), Math.round(sh * .205));
+    rctx.restore();
+  });
+  sheets.push({ sheet: relicSheet, pw: rpw, ph: rph, frames: 12 });
   const shuriken = document.createElement('canvas');shuriken.width=shuriken.height=20;
   const weaponCtx=shuriken.getContext('2d');weaponCtx.imageSmoothingEnabled=false;
   weaponCtx.drawImage(extras,838,132,53,55,0,0,20,20);

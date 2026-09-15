@@ -1,5 +1,7 @@
 # Night Hunters artwork
 
+[Relic hunter character art](relic-hunter/README.md) adds a Generations Lost-inspired 16-pose concept sheet with dark brown hair, olive complexion, green eyes, crouches, and a gauntlet energy whip. Source artwork only; frame extraction and game integration are pending.
+
 `city.png` and `sprites.png` reuse the built-in imagegen artwork created for the three-second Blade / Blade Runner clip. `generation-prompts.json` records their prompts; the original local clip remains in `output/blade-runner-genesis/`.
 
 `src/game/night/Atlas.js` normalizes all sixteen cels onto common centers and boot baselines, mirrors the enemy rows to the shared facing convention, and caches two restrained step poses. The same frame pixels drive the visible sprites and Dr Darkstar's `CollisionRain` sampling.

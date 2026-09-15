@@ -5,6 +5,6 @@
   "scripts": {
     "dev": "node server.mjs",
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/rain.test.mjs tests/smash.test.mjs tests/night.test.mjs"
+    "test": "node --test tests/rain.test.mjs tests/smash.test.mjs tests/night.test.mjs tests/lost.test.mjs"
   }
 }

@@ -41,6 +41,16 @@ try {
   await page.waitForFunction(()=>window.nightTest.stage.state==='playing',null,{timeout:5000});
   assert.ok(await page.evaluate(()=>window.nightTest.stage.enemies.length===3),'crossing the gate spawns the wave');
 
+  // The relic hunter: third tab, own sheet, e-rad whip.
+  await page.evaluate(()=>{window.nightTest.stage.reset();document.querySelector('#choose [data-hunter="relic"]').click();});
+  await page.waitForFunction(()=>window.nightTest.stage.kind==='relic',null,{timeout:5000});
+  assert.equal(await page.evaluate(()=>window.nightTest.stage.player.name),'RELIC HUNTER');
+  await page.evaluate(()=>{const s=window.nightTest.stage;s.player.facing=1;});
+  await page.keyboard.press('j');
+  await page.waitForTimeout(200);
+  assert.ok(await page.evaluate(()=>['relicWhip'].includes(window.nightTest.stage.player.action?.name)),'J casts the e-rad whip');
+  await page.evaluate(()=>{window.nightTest.stage.reset();document.querySelector('#choose [data-hunter="blade"]').click();});
+
   // The canteen: B inside the noodle bar swaps the storm for glass rain.
   await page.evaluate(()=>{window.nightTest.stage.reset();window.nightTest.stage.player.x=108;});
   await page.waitForFunction(()=>window.nightTest.stage.state==='strolling',null,{timeout:5000});
@@ -57,6 +67,31 @@ try {
   await page.keyboard.press('b');
   await page.waitForTimeout(400);
   assert.ok(await page.evaluate(()=>!window.nightTest.stage.canteen),'no canteen mid-street');
+
+  // The west breach: walk left, the Root Archive fades in over the city, the
+  // relic hunter takes the walk, the relay wakes to the whip, and the street
+  // takes its own hunter back on return.
+  await page.evaluate(()=>{window.nightTest.stage.reset();window.nightTest.stage.player.x=100;});
+  await page.waitForTimeout(400);
+  await page.keyboard.down('a'); await page.waitForTimeout(600); await page.keyboard.up('a');
+  await page.waitForFunction(()=>window.nightTest.stage.ruins,null,{timeout:5000});
+  assert.equal(await page.evaluate(()=>window.nightTest.stage.kind),'relic','the relic hunter takes the breach');
+  await page.waitForTimeout(1100); // crossfade settles
+  assert.ok(await page.evaluate(()=>window.nightTest.stage.ruinsBlend>.9),'the archive fades in');
+  await page.screenshot({path:'output/night-hunters/ruins-breach.png'});
+  await page.evaluate(()=>{const s=window.nightTest.stage;s.player.x=130;s.player.facing=1;});
+  await page.keyboard.press('j');
+  await page.waitForFunction(()=>window.nightTest.stage.relic.relay,null,{timeout:5000});
+  await page.evaluate(()=>{const s=window.nightTest.stage;s.player.x=420;s.player.facing=1;});
+  await page.keyboard.press('e');
+  await page.waitForTimeout(300);
+  assert.ok(await page.evaluate(()=>window.nightTest.stage.callouts.length>0),'the engraved wall speaks');
+  await page.keyboard.down('d'); await page.waitForTimeout(800); await page.keyboard.up('d');
+  await page.waitForFunction(()=>!window.nightTest.stage.ruins,null,{timeout:5000});
+  await page.evaluate(()=>{window.nightTest.stage.player.x=300;});
+  await page.waitForTimeout(200);
+  assert.equal(await page.evaluate(()=>window.nightTest.stage.kind),'blade','the street takes its hunter back');
+  assert.equal(await page.evaluate(()=>window.nightTest.stage.state),'strolling','the archive never starts the hunt');
 
   const result = await page.evaluate(async()=>{
     const { stage, input, loop } = window.nightTest;
