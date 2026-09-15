@@ -26,7 +26,9 @@ export class NightFighter extends AndyFighter {
     this.color = ROSTER[kind].color;
     this.scale = 1.8;
     this.applySheet(this.atlas.sheets[ROSTER[kind].row]);
-    this.frameIndex = { idle: 0, walk1: 4, walk2: 5, dash: 4, jump: 0, windup: 1 };
+    this.frameIndex = kind === 'relic'
+      ? { idle: 0, walk1: 4, walk2: 5, dash: 7, jump: 8, windup: 1 }
+      : { idle: 0, walk1: 4, walk2: 5, dash: 4, jump: 0, windup: 1 };
     this.action = null;
     this.dashTimer = 0;
   }
@@ -41,19 +43,42 @@ export class NightFighter extends AndyFighter {
   }
 
   draw(ctx) {
-    if (!this.crouching) { super.draw(ctx); return; }
-    // Squashed duck, feet planted.
-    ctx.save();
-    ctx.translate(this.x, this.feet);
-    ctx.scale(this.facing * 1.12, 0.72);
-    ctx.drawImage(this.sheet,
-      this.frame * this.frameWidth, 0, this.frameWidth, this.frameHeight,
-      -this.renderWidth / 2, -this.renderHeight, this.renderWidth, this.renderHeight);
-    ctx.restore();
+    if (this.crouching && this.kind === 'relic') {
+      // The relic sheet has a true crouch cel — no squash needed.
+      this.setFrame(6);
+      super.draw(ctx);
+    } else if (!this.crouching) { super.draw(ctx); }
+    else {
+      // Squashed duck, feet planted.
+      ctx.save();
+      ctx.translate(this.x, this.feet);
+      ctx.scale(this.facing * 1.12, 0.72);
+      ctx.drawImage(this.sheet,
+        this.frame * this.frameWidth, 0, this.frameWidth, this.frameHeight,
+        -this.renderWidth / 2, -this.renderHeight, this.renderWidth, this.renderHeight);
+      ctx.restore();
+    }
+    // E-rad whip: a live energy line extends the cast beyond the cel.
+    if (this.kind === 'relic' && this.action?.name === 'relicWhip') {
+      const t = this.action.time;
+      if (t > .26 && t < .44) {
+        const phase = Math.min(1, (t - .26) / .14);
+        ctx.save(); ctx.translate(this.x, this.feet); ctx.scale(this.facing, 1);
+        ctx.beginPath(); ctx.moveTo(16, -52);
+        ctx.bezierCurveTo(60, -70 - 26 * Math.sin(phase * 5), 120, -30, 116 * (0.55 + 0.45 * phase), -60);
+        ctx.strokeStyle = 'rgba(32,214,202,.55)'; ctx.lineWidth = 5; ctx.stroke();
+        ctx.strokeStyle = '#c7ffef'; ctx.lineWidth = 1.5; ctx.stroke();
+        ctx.restore();
+      }
+    }
   }
   actionPose() {
     const a = this.action;
     if (!a) return 0;
+    if (this.kind === 'relic') {
+      if (a.name === 'relicWhip') return a.time < .14 ? 1 : a.time < .30 ? 2 : a.time < .46 ? 10 : 11;
+      if (a.name === 'block') return this.blockFlash > 0 ? 3 : 9;
+    }
     if (a.name === 'serve' && this.kind === 'blade') return a.time < .14 ? 6 : a.time < .27 ? 7 : 8;
     if (a.name === 'block') return this.blockFlash > 0 ? 11 : a.time < .10 ? 9 : 10;
     return this.moveTable[a.name].pose;
@@ -88,16 +113,25 @@ export class NightFighter extends AndyFighter {
     this.crouching = !!(this.onGround && !this.action && this.hitstun <= 0 &&
       source.isDown('KeyS', 'ArrowDown'));
     const gun = this.kind === 'deckard';
+    const whip = this.kind === 'relic';
     this.input = {
       isDown: (...codes) => source.isDown(...codes),
       consume: code => {
         if (code === 'KeyI' || code === 'KeyU') return false;
         if (gun && code === 'KeyJ') return false;
         if (gun && code === 'KeyL') return source.consume('KeyJ') || source.consume('KeyL');
+        // The relic hunter has no shurikens: J/L cast the e-rad whip instead.
+        if (whip && code === 'KeyJ') return false;
+        if (whip && code === 'KeyL') return source.consume('KeyJ') || source.consume('KeyL');
         return source.consume(code);
       },
     };
     try { super.controls(delta, stage); } finally { this.input = source; }
+    // Retarget the serve projectile the shared controls fired into the whip.
+    if (whip && this.action?.name === 'serve') {
+      this.action = { name: 'relicWhip', time: 0, charge: 0, hitDone: false, targets: new Set() };
+      this.setFrame(this.actionPose());
+    }
     // Leaving the duck: airborne or acting means standing.
     if (!this.onGround || this.action) this.crouching = false;
     else if (this.crouching) {
@@ -133,7 +167,12 @@ export class NightFighter extends AndyFighter {
     else if (this.hitstun > 0) this.setFrame(this.kind === 'blade' ? 3 : this.kind === 'deckard' ? 3 : 2);
     else if (this.onGround && Math.abs(this.vx) > 18) {
       this.frameTime += delta;
-      this.setFrame(4 + Math.floor(this.frameTime / .14) % 2);
+      if (this.kind === 'relic') {
+        // The relic sheet's Walk A/B barely differ, which reads as sliding.
+        // Fold the distinct dash cel into a four-beat gait for visible strides.
+        const gait = [4, 5, 7, 5];
+        this.setFrame(gait[Math.floor(this.frameTime / .12) % gait.length]);
+      } else this.setFrame(4 + Math.floor(this.frameTime / .14) % 2);
     } else this.setFrame(0);
   }
 

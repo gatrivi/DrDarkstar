@@ -1,13 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  NIGHT_MOVES, hitTarget, blockHit, projectileSweep, overlaps, aimShot, LAYOUTS, WORLD,
+  ROSTER, NIGHT_MOVES, hitTarget, blockHit, projectileSweep, overlaps, aimShot, LAYOUTS, WORLD,
   SCORE, scoreForHit, scoreForKO, comboMult, BOUNTIES, bountyIdValid,
   bountyPayout, boardRank, boardInsert, decodeChallenge, encodeChallenge,
 } from '../src/game/night/Combat.js';
 import { NightFighter } from '../src/game/night/NightFighter.js';
 import { NightStage } from '../src/game/night/NightStage.js';
-import { ZEN, zoneOf, pastGate, inNoodleBar, photoLog, filmStrip, PHOTO_LOGS } from '../src/game/night/ZenZone.js';
+import { ZEN, zoneOf, pastGate, inNoodleBar, photoLog, filmStrip, PHOTO_LOGS, mellowLevel, atBreach } from '../src/game/night/ZenZone.js';
+import { RELIC_RELAY_X, RUINS_EXIT_X } from '../src/game/night/RelicVista.js';
 import { CANTEEN, GlassRain } from '../src/game/night/Canteen.js';
 
 const attacker = { team: 'hunter', facing: 1 };
@@ -232,4 +233,29 @@ test('glass rain droplets slide down the pane and never leave it', () => {
   const before = free.vy;
   glass.update(1 / 60);
   assert.ok(free.vy > before, 'release accelerates down the glass');
+});
+
+test('the relic hunter is a full cast member with an e-rad whip', () => {
+  const relic = ROSTER.relic;
+  assert.ok(relic, 'relic in the roster');
+  assert.equal(relic.name, 'RELIC HUNTER');
+  assert.ok(Number.isInteger(relic.row) && relic.row >= 0, 'sheet row assigned');
+  assert.equal(relic.weapon, 'E-RAD / WHIP');
+  const whip = NIGHT_MOVES.relicWhip;
+  assert.ok(whip, 'relicWhip move defined');
+  assert.ok(whip.reach > NIGHT_MOVES.punch.reach, 'the whip outreaches the sword');
+  assert.ok(whip.active[0] < whip.active[1] && whip.duration > whip.active[1]);
+});
+
+test('the west breach damps the storm and opens onto the archive', () => {
+  assert.equal(atBreach(ZEN.relicGate), true, 'the breach line opens the ruins');
+  assert.equal(atBreach(ZEN.relicGate + 1), false);
+  const near = mellowLevel(ZEN.relicGate + 6), far = mellowLevel(ZEN.relicGate + 220);
+  assert.ok(near < .32 && far >= 1, `rain mellows toward the breach (${near.toFixed(2)} < 0.32, far ${far})`);
+  const sample = [];
+  for (let x = ZEN.relicGate; x <= ZEN.relicGate + 240; x += 12) sample.push(mellowLevel(x));
+  for (let i = 1; i < sample.length; i++) assert.ok(sample[i] >= sample[i - 1], 'mellowing is monotonic');
+  assert.ok(RUINS_EXIT_X > ZEN.relicGate && RUINS_EXIT_X < ZEN.gate, 'exit hysteresis sits inside uptown');
+  assert.ok(ROSTER.relic.row !== ROSTER.vampire.row && ROSTER.relic.row !== ROSTER.replicant.row,
+    'relic sheet does not collide with enemy rows');
 });

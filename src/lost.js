@@ -62,6 +62,8 @@ function preparePoses(image) {
   });
 }
 function tile(id,x,y,w=TILE,h=w) { ctx.drawImage(tiles[id],Math.round(x),Math.round(y),w,h); }
+// Four-beat gait folding the dash cel (index 3) in so strides read instead of sliding.
+const GAIT=[1,2,3,2];
 function prop(name,x,y,w,h) {
   if(x+w<cameraX-20||x>cameraX+980)return;
   ctx.drawImage(foliage[name],Math.round(x),Math.round(y),Math.round(w),Math.round(h));
@@ -125,7 +127,7 @@ function drawScene() {
   label('↑ FOLLOW THE CONDUITS',37*TILE,420);
   label('↑ THE LAST RELAY',73*TILE,420);
   const p=world.player;
-  let pose=p.crouch?(p.vx?7:6):!p.grounded?(p.vy<0?4:5):p.vx?(Math.floor(world.time*8)%2+1):0;
+  let pose=p.crouch?(p.vx?7:6):!p.grounded?(p.vy<0?4:5):p.vx?GAIT[Math.floor(world.time*10)%4]:0;
   if(p.attack>0) pose=p.crouch?12:[8,9,10,11][Math.min(3,Math.floor((.42-p.attack)/.105))];
   ctx.save();ctx.translate(Math.round(p.x),Math.round(p.y));ctx.scale(p.facing,1);
   ctx.fillStyle='#020a0b66';ctx.beginPath();ctx.ellipse(0,1,19,3,0,0,Math.PI*2);ctx.fill();

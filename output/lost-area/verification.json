@@ -1,0 +1,25 @@
+{
+  "checks": [
+    "foliage atlas loaded",
+    "keyboard movement",
+    "keyboard jump",
+    "keyboard crouch",
+    "keyboard whip awakens relay",
+    "relay state reaches HUD",
+    "map toggle",
+    "pause freezes simulation",
+    "ceiling retains crouch after key release",
+    "E discovers canopy memory",
+    "memory discovery reaches HUD",
+    "hunter stands on fallen-log bridge",
+    "new expedition resets progress",
+    "new expedition resets discovered memories",
+    "on-screen movement via pointer",
+    "pointer release stops movement",
+    "mobile has no horizontal overflow",
+    "no browser exceptions",
+    "no failed resources"
+  ],
+  "errors": [],
+  "failures": []
+}

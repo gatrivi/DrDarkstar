@@ -7,8 +7,9 @@ import { WorldRain } from './WorldRain.js';
 import { shurikenRain } from './ProjectileRain.js';
 import { WORLD, NIGHT_MOVES, overlaps, hitTarget, blockHit, projectileSweep, vulnerable, aimShot, LAYOUTS,
   SCORE, scoreForHit, scoreForKO, comboMult, bountyIdValid, bountyPayout, boardRank, boardInsert } from './Combat.js';
-import { ZEN, inNoodleBar, pastGate, photoLog, filmStrip } from './ZenZone.js';
+import { ZEN, inNoodleBar, pastGate, photoLog, filmStrip, mellowLevel, atBreach } from './ZenZone.js';
 import { CANTEEN, CANTEEN_LOGS, GlassRain } from './Canteen.js';
+import { RelicVista, RELIC_RELAY_X, RELIC_MURAL_X, RELIC_MEMORY_X, RUINS_EXIT_X } from './RelicVista.js';
 
 export class NightStage {
   constructor({ input, sound }) {
@@ -41,6 +42,11 @@ export class NightStage {
     // droplets sliding down the window glass.
     this.canteen = false;
     this.glass = new GlassRain();
+    // The west breach: strolling past the west edge crossfades the city into
+    // the Root Archive vista, and the relic hunter takes the walk.
+    this.ruins = false; this.ruinsBlend = 0; this.streetKind = 'blade';
+    this.relic = { relay: false, mural: false, memory: false, eT: 0, toastT: 0 };
+    this.vista = new RelicVista();
     this.onDash = () => this.sfx.play('dash');
     this.trails = document.createElement('canvas');
     this.trails.width = this.width; this.trails.height = this.height;
@@ -122,6 +128,8 @@ export class NightStage {
       settings: { size: 1.1, reveal: 1.5 } });
     this.zone = 'uptown'; this.noodleT = 0; this.noodleToastT = 0;
     this.canteen = false;
+    this.ruins = false; this.ruinsBlend = 0;
+    this.relic = { relay: false, mural: false, memory: false, eT: 0, toastT: 0 };
     this.viewer = null;
     this.state = play ? 'strolling' : 'ready';
   }
@@ -171,7 +179,43 @@ export class NightStage {
       }
     } else this.noodleT = 0;
     this.noodleToastT = Math.max(0, this.noodleToastT - delta);
+    // The west breach: crossing into the Root Archive. The world's native
+    // hunter takes over; walking back east hands the street back.
+    if (!this.ruins && atBreach(this.player.x)) {
+      this.ruins = true;
+      this.streetKind = this.kind;
+      if (this.kind !== 'relic') { this.kind = 'relic'; this.player.setKind('relic'); }
+      this.announce('THE WEST BREACH', 'THE RAIN THINS. OLD STONE LISTENS.', '#7fffe0');
+    } else if (this.ruins && this.player.x > RUINS_EXIT_X) {
+      this.ruins = false;
+      if (this.kind !== this.streetKind) { this.kind = this.streetKind; this.player.setKind(this.streetKind); }
+      this.announce('BACK IN UPTOWN', 'THE STORM TAKES YOU BACK', '#8ee8f2');
+    }
+    if (this.ruins) this.updateRuins(delta);
     if (pastGate(this.player.x)) this.startHunt();
+  }
+  // Root Archive interactions: the e-rad wakes the relay; E reads stone.
+  updateRuins(delta) {
+    const r = this.relic, px = this.player.x;
+    r.toastT = Math.max(0, r.toastT - delta); r.eT = Math.max(0, r.eT - delta);
+    const a = this.player.action;
+    if (!r.relay && a?.name === 'relicWhip' && a.time > .26 && a.time < .44 &&
+        Math.abs(px - RELIC_RELAY_X) < 140 && Math.sign(RELIC_RELAY_X - px) === this.player.facing) {
+      r.relay = true;
+      this.announce('RELAY AWAKE', 'THE ROOTS REMEMBER THE RAIN', '#7fffe0');
+    }
+    if (r.eT <= 0 && this.input.isDown('KeyE')) {
+      r.eT = 1.2;
+      if (Math.abs(px - RELIC_MEMORY_X) < 80 && !r.memory) {
+        r.memory = true;
+        this.announce('MEMORY: THE CANOPY', '“WE PLANTED THESE TREES FOR SOMEONE WE WOULD NEVER MEET.”', '#c9fce0');
+      } else if (Math.abs(px - RELIC_MURAL_X) < 110) {
+        this.announce('ENGRAVED WALL', '“A GENERATION IS LOST ONLY WHEN NO ONE RETURNS TO LISTEN.”', '#c4deac');
+      } else if (r.toastT <= 0) {
+        r.toastT = 6;
+        this.announce('THE ROOT ARCHIVE', 'THE WHIP WAKES OLD MACHINES. E READS THE STONE.', '#a0c4ad');
+      }
+    }
   }
 
   // The canteen is a door in the noodle bar's glow — uptown only. B steps
@@ -230,8 +274,10 @@ export class NightStage {
     return pts;
   }
 
-  swap(kind = this.kind === 'blade' ? 'deckard' : 'blade') {
-    if (!['blade', 'deckard'].includes(kind) || kind === this.kind || !this.player) return false;
+  swap(kind) {
+    const cast = ['blade', 'deckard', 'relic'];
+    if (!kind) kind = cast[(cast.indexOf(this.kind) + 1) % cast.length]; // C cycles the cast
+    if (!cast.includes(kind) || kind === this.kind || !this.player) return false;
     if (this.state === 'playing' && (this.player.dead || this.player.hitstun > 0 || this.player.action?.name === 'roll')) return false;
     this.kind = kind;
     this.player.setKind(kind);
@@ -465,8 +511,12 @@ export class NightStage {
     else if (this.state === 'playing') this.updateCombat(delta);
     else this.actors.filter(f => f.dead).forEach(f => { f.deathTime += delta; f.setFrame(3); });
     const effects = this.fx.length ? Math.min(.5, this.fx.length / 110) : 0;
-    // Uptown is calmer: the audio field damps, so the rain visibly softens.
-    const calm = this.state === 'strolling' ? .5 : 1;
+    // Uptown is calmer; the west breach calmer still. The audio field damps,
+    // so the rain visibly softens as the hunter nears (and crosses) the breach.
+    const calm = this.state === 'playing' ? 1
+      : this.ruins ? .2
+      : .5 * (.4 + .6 * mellowLevel(this.player?.x ?? 480));
+    this.ruinsBlend += ((this.ruins ? 1 : 0) - this.ruinsBlend) * Math.min(1, delta * 2.4);
     const levels = { bass: audio.bass * calm, mid: audio.mid * calm, treble: audio.treble * calm,
       effect: Math.max(audio.effect * calm, effects) };
     this.visualAudio=levels;
@@ -494,14 +544,29 @@ export class NightStage {
     this.view = ctx; // Esper photos capture the live frame.
     ctx.imageSmoothingEnabled=false;
     if (this.canteen) { this.drawCanteen(ctx); this.drawEsper(ctx); this.drawFlash(ctx); return; }
-    if(this.worldRainEnabled){
-      this.drawWorld(this.sceneCtx,true);
-      this.worldRain.step(this.scene,this.visualDelta,this.visualAudio,this.visualFrame);
-      this.worldRain.draw(ctx);
-      // Dense local streams retain readable moving bodies within the world field.
-      ctx.drawImage(this.trails,0,0);
-      for(const shot of this.projectiles)shot.rain?.draw(ctx);
-    }else this.drawWorld(ctx,false);
+    if (this.ruinsBlend < .995) {
+      if(this.worldRainEnabled){
+        this.drawWorld(this.sceneCtx,true);
+        this.worldRain.step(this.scene,this.visualDelta,this.visualAudio,this.visualFrame);
+        this.worldRain.draw(ctx);
+        // Dense local streams retain readable moving bodies within the world field.
+        ctx.drawImage(this.trails,0,0);
+        for(const shot of this.projectiles)shot.rain?.draw(ctx);
+      }else this.drawWorld(ctx,false);
+    }
+    // The west breach: the lost world fades in over the city; the hunter and
+    // the ambient drizzle walk with it.
+    if (this.ruinsBlend > .005) {
+      ctx.save();
+      ctx.globalAlpha = Math.min(1, this.ruinsBlend);
+      this.vista.draw(ctx, this.time, this.player?.x ?? 480, this.platform.y, this.relic);
+      const f = this.player;
+      if (f && !f.dead) {
+        ctx.fillStyle = 'rgba(0,0,0,.45)'; ctx.fillRect(f.x - 28, this.platform.y - 1, 56, 3);
+        f.draw(ctx);
+      }
+      ctx.restore();
+    }
     this.drawCombatHud(ctx);
     this.drawEsper(ctx);
     this.drawFlash(ctx);
