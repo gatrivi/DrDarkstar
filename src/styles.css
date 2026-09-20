@@ -34,3 +34,23 @@ select { background: #07111d; color: #c5dbe6; border: 1px solid #29414d; font: i
 .toolbox output { text-align: right; color: #82ddd0; }
 .help { bottom: 25px; display: flex; gap: 18px; flex-wrap: wrap; color: #72909f; font-size: 10px; }
 @media (max-width: 620px) { .hud, .help, .intro { left: 16px; right: 16px; } .hud { font-size: 9px; } .controls { left: 16px; right: 16px; bottom: 95px; } #track { width: 100%; } .help { gap: 10px; } .toolbox { top: 82px; right: 16px; left: 16px; width: auto; } }
+
+/* Character pickers match the HUD buttons; the role label rides inside. */
+.pick { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: #c5dbe6; border: 1px solid #29414d; background: #07111de6; padding: 0 0 0 10px; cursor: pointer; }
+.pick:hover { border-color: #82ddd0; color: #82ddd0; }
+.pick select { font: inherit; font-size: 11px; color: inherit; background: transparent; border: none; padding: 10px 8px; cursor: pointer; }
+.pick select:focus-visible { outline: none; }
+.pick:focus-within { outline: 2px solid #82ddd0; outline-offset: 3px; }
+
+/* Controls remap panel: centered overlay, two player columns. */
+#padPanel { position: fixed; inset: 0; margin: auto; width: min(640px, 94vw); height: fit-content; z-index: 30; background: #07111df2; border: 1px solid #29414d; padding: 14px 16px; color: #c5dbe6; font-size: 11px; box-shadow: 0 12px 40px #000c; }
+.pad-head { display: flex; justify-content: space-between; align-items: center; letter-spacing: 2px; color: #82ddd0; }
+.pad-hint { margin: 8px 0 12px; color: #8aa7b5; }
+.pad-cols { display: flex; gap: 20px; flex-wrap: wrap; }
+.pad-col { flex: 1 1 240px; }
+.pad-col h3 { margin: 4px 0 8px; font-size: 11px; color: #82ddd0; letter-spacing: 1px; }
+.pad-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 3px 0; }
+.pad-key { min-width: 104px; text-align: center; }
+.pad-key.listening { border-color: #82ddd0; color: #82ddd0; }
+.pad-key.taken { border-color: #e0708a; color: #e0708a; }
+.pad-foot { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; }

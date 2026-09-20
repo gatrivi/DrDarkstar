@@ -110,6 +110,35 @@ export function twinkles(width, height, count = 14) {
   }));
 }
 
+// Photo backdrop: cover-crop a cityscape into the plate's 480x270 pixel grid,
+// then dim it so the fighters (and the rain sampling the scene) stay readable.
+// focus (0..1) picks the vertical band kept from the source — skylines vs streets.
+export function buildPhotoBackdrop(image, { width = 480, height = 270, focus = 0.5 } = {}) {
+  const canvas = document.createElement('canvas');
+  canvas.width = width; canvas.height = height;
+  const ctx = canvas.getContext('2d');
+  const sourceWidth = image.naturalWidth || image.width;
+  const sourceHeight = image.naturalHeight || image.height;
+  if (!sourceWidth || !sourceHeight) return canvas;
+  // Cover-fit: crop the source to the target aspect, steered toward `focus`.
+  const scale = Math.max(width / sourceWidth, height / sourceHeight);
+  const cropWidth = width / scale, cropHeight = height / scale;
+  const cropX = (sourceWidth - cropWidth) / 2;
+  const cropY = (sourceHeight - cropHeight) * focus;
+  ctx.imageSmoothingEnabled = true;
+  ctx.drawImage(image, cropX, cropY, cropWidth, cropHeight, 0, 0, width, height);
+  // Night pass: knock the photo back so neon sprites and rain carry the frame.
+  ctx.fillStyle = 'rgba(2, 6, 14, 0.45)';
+  ctx.fillRect(0, 0, width, height);
+  const shade = ctx.createLinearGradient(0, 0, 0, height);
+  shade.addColorStop(0, 'rgba(2, 4, 10, 0.4)');
+  shade.addColorStop(0.4, 'rgba(2, 4, 10, 0)');
+  shade.addColorStop(1, 'rgba(2, 4, 10, 0.3)');
+  ctx.fillStyle = shade;
+  ctx.fillRect(0, 0, width, height);
+  return canvas;
+}
+
 // Floating metal battle slab, side view: lit top edge, riveted plating, hazard
 // stripes at the ends, stepped underside with glowing vents.
 export function buildPlatformArt(width) {

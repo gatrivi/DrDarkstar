@@ -38,12 +38,6 @@ export const SIMON_MOVES = {
     active: [0.03, 0.16], reach: 48, heightRatio: 0.35,
     damage: 4, base: 120, scaling: 0.5, angle: -0.15,
   },
-  punch: {
-    label: 'Paddle jab',
-    pose: 'punch', duration: 0.28, animRate: 0.09,
-    active: [0.03, 0.16], reach: 48, heightRatio: 0.35,
-    damage: 4, base: 120, scaling: 0.5, angle: -0.15,
-  },
   ftilt: {
     label: 'Paddle push (forward tilt)',
     pose: 'ftilt', duration: 0.38, animRate: 0.12,
@@ -62,17 +56,35 @@ export const SIMON_MOVES = {
     active: [0.06, 0.16], reach: 60, heightRatio: 0.3,
     damage: 6, base: 165, scaling: 1.0, angle: -0.18, box: 'low',
   },
+  dashatk: {
+    label: 'Rusty rush (dash attack)',
+    pose: 'dash', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.2], reach: 54, heightRatio: 0.45,
+    damage: 6, base: 200, scaling: 0.9, angle: -0.3,
+  },
+  nair: {
+    label: 'Paddle twirl (neutral air)',
+    pose: 'tilt', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.22], reach: 52, heightRatio: 0.5,
+    damage: 6, base: 150, scaling: 0.8, angle: -0.45, box: 'both',
+  },
+  fair: {
+    label: 'Paddle swat (forward air)',
+    pose: 'tilt', duration: 0.36, animRate: 0.12,
+    active: [0.05, 0.2], reach: 60, heightRatio: 0.45,
+    damage: 8, base: 190, scaling: 1.2, angle: -0.4,
+  },
+  uair: {
+    label: 'Ladder lift (up air)',
+    pose: 'usmash', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.2], reach: 50, heightRatio: 0.6,
+    damage: 8, base: 190, scaling: 1.1, angle: -1.2, box: 'up',
+  },
   windup: {
     label: 'Iron windup',
     pose: 'smash', duration: Infinity, animRate: 0.3,
   },
   fsmash: {
-    label: 'Rusted iron slam',
-    pose: 'smash', duration: 0.55, animRate: 0.2,
-    active: [0.12, 0.24], reach: 78, heightRatio: 0.6,
-    damage: 14, base: 300, scaling: 2.2, angle: -0.4, chargeable: true,
-  },
-  golfswing: {
     label: 'Rusted iron slam',
     pose: 'smash', duration: 0.55, animRate: 0.2,
     active: [0.12, 0.24], reach: 78, heightRatio: 0.6,
@@ -90,11 +102,6 @@ export const SIMON_MOVES = {
     active: [0.08, 0.22], reach: 66, heightRatio: 0.35,
     damage: 11, base: 270, scaling: 1.9, angle: -0.35, box: 'both', chargeable: true,
   },
-  serve: {
-    label: 'Ping-pong serve',
-    pose: 'serve', duration: 0.4, animRate: 0.2,
-    active: [0.12, 0.14], spawn: 'pongball', damage: 0,
-  },
   retriever: {
     label: 'Pitbull rush',
     pose: 'summon', duration: 0.5, animRate: 0.2,
@@ -108,11 +115,6 @@ export const SIMON_MOVES = {
     label: 'Roll (invulnerable)',
     pose: 'roll', duration: 0.42, animRate: 0.1,
     invuln: [0.04, 0.3],
-  },
-  spot: {
-    label: 'Spot dodge (invulnerable)',
-    pose: 'guard', duration: 0.28, animRate: 0.1,
-    invuln: [0.02, 0.22],
   },
   airdodge: {
     label: 'Air dodge (invulnerable)',

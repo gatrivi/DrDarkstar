@@ -23,16 +23,36 @@
     <header class="hud"><div class="brand">SUPER SMASH COUSINS <small>001 / FAMILY BATTLE</small></div><div id="status">Loading Andy…</div></header>
     <section class="controls" aria-label="Game controls">
       <a class="file" href="./games.html">◀ Game select</a>
-      <button id="swap" title="Cycle between Andy, Eliseo and Simon">Swap fighter · C (ANDY)</button>
+      <label class="pick" title="Pick P1's cousin">P1 <select id="p1Pick">
+        <option value="andy">Andy</option>
+        <option value="eliseo">Eliseo</option>
+        <option value="simon">Simon</option>
+      </select></label>
+      <label class="pick" title="Pick the CPU cousin — or P2's cousin in versus mode"><span id="foeRole">CPU</span> <select id="foePick">
+        <option value="andy">Andy</option>
+        <option value="eliseo">Eliseo</option>
+        <option value="simon">Simon</option>
+      </select></label>
+      <button id="swap" title="Cycle P1's cousin (or use the pickers)">Swap fighter · C (ANDY)</button>
       <button id="mode" title="Toggle P1 vs CPU or local 2-player versus">Mode · T (P1 vs CPU)</button>
       <button id="music" title="Toggle the synthesized demo loop">Music · M (off)</button>
       <button id="rain" aria-pressed="true" title="Render the whole stage — city, slab and fighters — through the full-world pixel rain">World rain · N (ON)</button>
       <button id="pause" title="Pause or resume the match">Pause · P</button>
       <button id="reset">Reset match</button>
+      <button id="padOpen" title="Remap P1 and P2 keys (saved in this browser)">Controls · O</button>
       <audio id="audio" loop></audio>
-      <span id="track" role="status">P1: WASD + J jab · L tilt · hold K smash · S shield · Shift dodge. P2: arrows + , . / · RightShift dodge. T for versus.</span>
+      <span id="track" role="status">P1: WASD + J attack (air = aerials) · L tilt · hold K smash · S shield · Shift dodge. P2: arrows + , . / · RightShift dodge. T for versus.</span>
     </section>
-    <footer class="help"><span>P1 — A/D move · W jump ×2 · S shield / fast-fall · J jab (+dir tilt) · L tilt (f/up/down) · hold K smash (f/up/down) · Shift roll/spot/airdodge</span><span>P2 — ←/→ · ↑ jump · ↓ shield · , jab · . tilt · hold / smash · RightShift dodge</span><span>T versus · C swap (Andy · Eliseo · Simon) · N world rain · P pause · M music · R reset damage · H hitboxes · double-tap dash · I summon · U power · Esc select</span></footer>
+    <footer class="help"><span>P1 — A/D move · W jump ×2 · S shield / fast-fall · J attack (+dir = tilts grounded, aerials in air; mid-dash = dash attack) · L tilt · hold K smash (f/up/down, auto-fires at full charge) · Shift roll / air-dodge</span><span>P2 — ←/→ · ↑ jump · ↓ shield · , jab · . tilt · hold / smash · RightShift dodge</span><span>T versus · C swap (Andy · Eliseo · Simon) · N world rain · B backdrop · P pause · M music · R reset damage · H hitboxes · double-tap dash · I summon · U power · O controls · Esc select</span></footer>
+    <div id="padPanel" hidden>
+      <div class="pad-head"><strong>CONTROLS</strong><button id="padClose" title="Close">✕</button></div>
+      <p class="pad-hint">Click an action, then press the new key. Esc cancels · duplicates are refused. Saved in this browser.</p>
+      <div class="pad-cols">
+        <div class="pad-col" id="padP1"><h3>P1</h3></div>
+        <div class="pad-col" id="padP2"><h3>P2</h3></div>
+      </div>
+      <div class="pad-foot"><button id="padReset">Reset defaults</button></div>
+    </div>
   </main>
   <script type="module" src="./src/smash.js"></script>
 </body>

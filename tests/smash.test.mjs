@@ -2,34 +2,43 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
   knockback, isOutOfBounds, shieldCost, blockedByShield, dodgedByInvuln, boxesOverlap,
+  foeFor, SMASH_ROSTER,
 } from '../src/game/smash/SmashStage.js';
 import { ELISEO_MOVES, ELISEO_POSES } from '../src/game/smash/Eliseo.js';
 import { ANDY_POSES } from '../src/game/smash/AndyFighter.js';
 import { SIMON_MOVES, SIMON_POSES } from '../src/game/smash/Simon.js';
 import { MOVES as ANDY_MOVES, SHIELD, shieldstun, chargeBonus, hitstopFor, shakeFor, KO_HITSTOP, MAX_CHARGE, CHARGE_DAMAGE_MULT, COUNTER_HIT_MULT } from '../src/game/smash/Moveset.js';
 
-// Full melee-inspired kit both fighters must answer to.
-const KIT = ['jab', 'ftilt', 'utilt', 'dtilt', 'windup', 'fsmash', 'usmash', 'dsmash',
-  'roll', 'spot', 'airdodge', 'retriever', 'super'];
+// Minimal N64-tier kit both fighters must answer to.
+const KIT = ['jab', 'ftilt', 'utilt', 'dtilt', 'dashatk', 'windup', 'fsmash', 'usmash',
+  'dsmash', 'nair', 'fair', 'uair', 'roll', 'airdodge', 'retriever', 'super'];
+// Trimmed from the kit; must NOT come back.
+const TRIMMED = ['spot', 'punch', 'golfswing', 'serve'];
+
+test('the foe is never the same cousin as the player', () => {
+  for (const pick of SMASH_ROSTER) {
+    const foe = foeFor(pick);
+    assert.notEqual(foe, pick, 'mirror match: both sides picked the same cousin');
+    assert.ok(SMASH_ROSTER.includes(foe), `foe ${foe} is not in the roster`);
+  }
+  assert.equal(foeFor('andy', ['andy']), 'andy', 'single-entry roster degenerates to the pick');
+});
 
 test('Eliseo move table covers every control input', () => {
   // AndyFighter.controls starts moves by these keys regardless of character.
-  for (const key of [...KIT, 'punch', 'golfswing', 'serve']) {
-    assert.ok(key in ELISEO_MOVES, `missing move: ${key}`);
-  }
+  for (const key of KIT) assert.ok(key in ELISEO_MOVES, `missing move: ${key}`);
+  for (const key of TRIMMED) assert.ok(!(key in ELISEO_MOVES), `trimmed move still present: ${key}`);
 });
 
 test('Andy move table covers the full kit', () => {
-  for (const key of [...KIT, 'punch', 'golfswing', 'serve']) {
-    assert.ok(key in ANDY_MOVES, `missing move: ${key}`);
-  }
+  for (const key of KIT) assert.ok(key in ANDY_MOVES, `missing move: ${key}`);
+  for (const key of TRIMMED) assert.ok(!(key in ANDY_MOVES), `trimmed move still present: ${key}`);
 });
 
 test('Simon move table covers every control input', () => {
   // SimonFighter rides the same AndyFighter.controls dispatch.
-  for (const key of [...KIT, 'punch', 'golfswing', 'serve']) {
-    assert.ok(key in SIMON_MOVES, `missing move: ${key}`);
-  }
+  for (const key of KIT) assert.ok(key in SIMON_MOVES, `missing move: ${key}`);
+  for (const key of TRIMMED) assert.ok(!(key in SIMON_MOVES), `trimmed move still present: ${key}`);
 });
 
 test('every Simon move pose exists in his spritesheet', () => {
@@ -46,7 +55,7 @@ test('Simon kit matches the melee hierarchy and box directions', () => {
   assert.equal(SIMON_MOVES.utilt.box, 'up');
   assert.equal(SIMON_MOVES.dsmash.box, 'both');
   assert.equal(SIMON_MOVES.dtilt.box, 'low');
-  for (const name of ['roll', 'spot', 'airdodge']) {
+  for (const name of ['roll', 'airdodge']) {
     const [a, b] = SIMON_MOVES[name].invuln;
     assert.ok(a > 0 && b > a && SIMON_MOVES[name].duration > b, `${name} invuln window malformed`);
   }
@@ -95,7 +104,7 @@ test('directional boxes: up moves hit above, down-smash hits both sides', () => 
 
 test('dodges have startup before intangibility (melee-style)', () => {
   for (const table of [ANDY_MOVES, ELISEO_MOVES]) {
-    for (const name of ['roll', 'spot', 'airdodge']) {
+    for (const name of ['roll', 'airdodge']) {
       const [a, b] = table[name].invuln;
       assert.ok(a > 0, `${name} should have startup frames`);
       assert.ok(b > a, `${name} intangibility window must be non-empty`);
@@ -156,13 +165,21 @@ test('blockedByShield only while the bubble is up', () => {
   assert.equal(blockedByShield({ shielding: true, shieldHP: 60, shieldstun: 0.2 }), false);
 });
 
-test('dodgedByInvuln covers rolls, spots and air-dodges', () => {
+test('dodgedByInvuln covers rolls and air-dodges', () => {
   assert.equal(dodgedByInvuln({ invuln: 0.1, action: null }), true);
   assert.equal(dodgedByInvuln({ invuln: 0, action: { name: 'roll' } }), true);
-  assert.equal(dodgedByInvuln({ invuln: 0, action: { name: 'spot' } }), true);
   assert.equal(dodgedByInvuln({ invuln: 0, action: { name: 'airdodge' } }), true);
   assert.equal(dodgedByInvuln({ invuln: 0, action: { name: 'jab' } }), false);
   assert.equal(dodgedByInvuln({ invuln: 0, action: null }), false);
+});
+
+test('aerials exist with sane boxes (N64 tier)', () => {
+  for (const table of [ANDY_MOVES, ELISEO_MOVES, SIMON_MOVES]) {
+    assert.equal(table.nair.box, 'both', 'neutral air hits both sides');
+    assert.ok(!table.fair.box || table.fair.box === 'forward', 'forward air is directional');
+    assert.equal(table.uair.box, 'up', 'up air hits above');
+    assert.ok(table.dashatk.reach > 0, 'dash attack has a hitbox');
+  }
 });
 
 test('boxesOverlap detects touches and misses', () => {

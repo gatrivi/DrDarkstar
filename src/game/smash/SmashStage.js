@@ -1,14 +1,31 @@
 import { AndyFighter, P1_BINDINGS, P2_BINDINGS } from './AndyFighter.js';
 import { EliseoFighter } from './Eliseo.js';
 import { SimonFighter } from './Simon.js';
-import { Projectile } from './Projectile.js';
 import { Retriever } from './Retriever.js';
 import { SnakeSummon } from './SnakeSummon.js';
 import { CollisionRain } from '../../effects/CollisionRain.js';
 import { SmashSfx } from './Sfx.js';
 import { SHIELD, chargeBonus, shieldstun, hitstopFor, shakeFor, KO_HITSTOP, MAX_CHARGE, COUNTER_HIT_MULT } from './Moveset.js';
 import { WorldRain } from '../night/WorldRain.js';
-import { buildBackground, buildPlatformArt, twinkles } from './StageArt.js';
+import { buildBackground, buildPhotoBackdrop, buildPlatformArt, twinkles } from './StageArt.js';
+import { loadImage } from './SheetLoader.js';
+
+// Photo backdrops dropped in as stage art (B cycles them; painted plate is the fallback).
+const BACKDROP_SOURCES = [
+  { url: './assets/smash/city-green.jpeg', focus: 0.45 },
+  { url: './assets/smash/city-red.jpeg', focus: 0.55 },
+];
+
+export const SMASH_ROSTER = ['andy', 'eliseo', 'simon'];
+const ROSTER_CLASSES = { andy: AndyFighter, eliseo: EliseoFighter, simon: SimonFighter };
+const FIGHTER_NAMES = { andy: 'ANDY', eliseo: 'ELISEO', simon: 'SIMON' };
+
+// The other side of a match never mirrors your pick: one cousin per fight.
+export function foeFor(player, roster = SMASH_ROSTER) {
+  const others = roster.filter((name) => name !== player);
+  if (!others.length) return player;
+  return others[Math.floor(Math.random() * others.length)];
+}
 
 // Pure helpers (unit-tested in tests/smash.test.mjs)
 export function knockback(percent, base, scaling, vegan = false) {
@@ -34,7 +51,7 @@ export function blockedByShield(target) {
 
 export function dodgedByInvuln(target) {
   return (target?.invuln ?? 0) > 0 || target?.action?.name === 'roll'
-    || target?.action?.name === 'spot' || target?.action?.name === 'airdodge';
+    || target?.action?.name === 'airdodge';
 }
 
 export function boxesOverlap(a, b) {
@@ -42,14 +59,13 @@ export function boxesOverlap(a, b) {
 }
 
 export class SmashStage {
-  constructor({ input, width, height, sound, player = 'andy', mode = 'cpu' }) {
+  constructor({ input, width, height, sound, player = 'andy', foe = null, mode = 'cpu' }) {
     this.width = width; this.height = height;
     this.input = input;
     this.sound = sound;
     this.sfx = new SmashSfx(sound);
     this.player = player;
     this.mode = mode; // 'cpu' (P1 vs dummy AI) | 'versus' (P1 vs P2, same keyboard)
-    this.projectiles = [];
     this.dogs = [];
     this.koFlashes = []; // { x, y, time }
     this.popups = [];    // { x, y, text, color, time }
@@ -59,18 +75,18 @@ export class SmashStage {
     this.debug = false;  // H toggles hurtbox/hitbox overlay for testing
     this.time = 0;
 
-    const ROSTER = { andy: AndyFighter, eliseo: EliseoFighter, simon: SimonFighter };
-    const PlayerClass = ROSTER[player] ?? AndyFighter;
-    this.andy = new PlayerClass({
+    const pick = ROSTER_CLASSES[player] ? player : 'andy';
+    this.andy = new ROSTER_CLASSES[pick]({
       input, width, height, bindings: P1_BINDINGS,
-      name: player === 'eliseo' ? 'ELISEO' : player === 'simon' ? 'SIMON' : 'ANDY',
+      name: FIGHTER_NAMES[pick],
       spawnX: width * 0.3,
     });
-    this.dummy = new AndyFighter({
+    // An explicitly picked foe is honored unless it mirrors P1 or isn't real.
+    this.foe = foe && ROSTER_CLASSES[foe] && foe !== pick ? foe : foeFor(pick);
+    this.dummy = new ROSTER_CLASSES[this.foe]({
       input: mode === 'versus' ? input : null, width, height,
-      bindings: P2_BINDINGS, name: mode === 'versus' ? 'P2 · DUMMY' : 'DUMMY',
+      bindings: P2_BINDINGS, name: FIGHTER_NAMES[this.foe],
       spawnX: width * 0.7,
-      tint: { r: 200, g: 60, b: 90 }, // hue-shifted cousin recolor
     });
 
     this.ambientRain = new CollisionRain({ width, height, actor: this.andy, count: 500 });
@@ -79,7 +95,8 @@ export class SmashStage {
       new CollisionRain({ width, height, actor: this.dummy, count: 8000, focused: true }),
     ];
     // Rain forms the fighters' bodies: bigger, brighter drops read as a character.
-    for (const rain of this.rains) Object.assign(rain.settings, { size: 1.5, reveal: 1.5, smoothing: 8 });
+    // pulse/bassScale keep the music from strobing the field (calmer than Night Hunters).
+    for (const rain of this.rains) Object.assign(rain.settings, { size: 1.5, reveal: 1.5, smoothing: 8, drift: 0.6, pulse: 0.5, bassScale: 0.6 });
     this.cam = { x: width / 2, y: height * 0.45, zoom: 1.4 };
     // Full-world pixel rain (the Night Hunters solution): the whole stage —
     // city plate, slab, fighters, projectiles — renders into a half-res scene
@@ -95,9 +112,14 @@ export class SmashStage {
     this.scene.width = Math.ceil(width / 2); this.scene.height = Math.ceil(height / 2);
     this.sceneCtx = this.scene.getContext('2d', { willReadFrequently: true });
     this.sceneCtx.setTransform(0.5, 0, 0, 0.5, 0, 0);
-    this.worldRain = new WorldRain(width, height);
-    // Painted stage art: neon city plate + riveted metal slab.
+    // Calmer than Night Hunters' default: dimmer reveal, gentler drift, and a
+    // softer music pulse so the stage doesn't strobe with the soundtrack.
+    this.worldRain = new WorldRain(width, height, 12000, { reveal: 2.4, drift: 0.6, pulse: 0.5, bassScale: 0.6 });
+    // Painted stage art: neon city plate + riveted metal slab. The photo
+    // backdrops replace the plate once they finish loading (see load()).
     this.background = buildBackground();
+    this.photoBackdrops = [];
+    this.backdropIndex = Math.floor(Math.random() * BACKDROP_SOURCES.length);
     this.stars = twinkles(width, height);
     this.platformArt = buildPlatformArt(this.platform.x1 - this.platform.x0);
     // Fighter action hooks (called from AndyFighter.controls).
@@ -118,10 +140,8 @@ export class SmashStage {
     if (mode === 'versus') {
       this.dummy.input = this.input;
       this.dummy.bindings = P2_BINDINGS;
-      this.dummy.name = 'P2 · DUMMY';
     } else {
       this.dummy.input = null;
-      this.dummy.name = 'DUMMY';
     }
   }
 
@@ -134,6 +154,21 @@ export class SmashStage {
   async load() {
     await Promise.all([this.andy.load(), this.dummy.load()]);
     for (const f of [this.andy, this.dummy]) f.scale = this.fighterScale() * (f.unitScale ?? 1);
+    // Backdrops are decorative: a missing photo just keeps the painted plate.
+    await Promise.all(BACKDROP_SOURCES.map(async (source) => {
+      try {
+        const image = await loadImage(source.url);
+        this.photoBackdrops.push(buildPhotoBackdrop(image, { focus: source.focus }));
+      } catch { /* keep the painted city */ }
+    }));
+    if (this.photoBackdrops.length) this.backdropIndex %= this.photoBackdrops.length;
+  }
+
+  cycleBackdrop() {
+    if (!this.photoBackdrops.length) return;
+    this.backdropIndex = (this.backdropIndex + 1) % this.photoBackdrops.length;
+    this.popup(this.width / 2, this.height * 0.3,
+      `BACKDROP ${this.backdropIndex + 1}/${this.photoBackdrops.length}`, '#9adcff');
   }
 
   fighterScale() {
@@ -155,7 +190,7 @@ export class SmashStage {
     // Rebuild the sized rain buffers and repaint the slab for the new width.
     this.scene.width = Math.ceil(width / 2); this.scene.height = Math.ceil(height / 2);
     this.sceneCtx.setTransform(0.5, 0, 0, 0.5, 0, 0);
-    this.worldRain = new WorldRain(width, height);
+    this.worldRain = new WorldRain(width, height, 12000, { reveal: 2.4, drift: 0.6, pulse: 0.5, bassScale: 0.6 });
     this.trails.width = width; this.trails.height = height;
     this.platformArt = buildPlatformArt(this.platform.x1 - this.platform.x0);
     this.stars = twinkles(width, height);
@@ -327,38 +362,9 @@ export class SmashStage {
           });
           snake.owner = f;
           this.dogs.push(snake);
-        } else {
-          const ball = new Projectile({
-            x: f.x + f.facing * f.renderWidth * 0.5,
-            y: f.y - f.renderHeight * 0.25,
-            vx: f.facing * 520,
-          });
-          ball.owner = f;
-          this.projectiles.push(ball);
         }
       }
     }
-
-    for (const p of this.projectiles) {
-      p.update(delta, this.platform, this);
-      for (const f of [this.andy, this.dummy]) {
-        if (f === p.owner || !p.alive || f.respawnTimer > 0) continue;
-        if ((f.invuln ?? 0) > 0) continue;
-        if (Math.abs(p.x - f.x) < f.renderWidth * 0.35 && Math.abs(p.y - f.y) < f.renderHeight * 0.5) {
-          if (blockedByShield(f)) {
-            p.alive = false;
-            f.shieldHP = Math.max(0, f.shieldHP - shieldCost(5));
-            f.shieldstun = Math.max(f.shieldstun, shieldstun(5));
-            this.sfx.play('shieldHit');
-            this.popup(f.x, f.y - f.renderHeight * 0.7, 'BLOCK', '#7db8ff');
-          } else {
-            p.alive = false;
-            this.applyHit(p.owner ?? this.andy, f, { damage: 5, base: 180, scaling: 0.8, angle: -0.35 }, 0);
-          }
-        }
-      }
-    }
-    this.projectiles = this.projectiles.filter(p => p.alive);
 
     // Good dog: sprints the stage, bowls over anyone in the way (once each).
     for (const dog of this.dogs) {
@@ -424,11 +430,11 @@ export class SmashStage {
     for (const g of this.ghosts) g.time += delta;
     this.ghosts = this.ghosts.filter(g => g.time < 0.25);
 
-    // When the world field is on, fewer drops per fighter: the scene capture
+    // When the world field is on, few drops per fighter: the scene capture
     // already rains over everything (same budget trick as Night Hunters).
     for (const rain of this.rains) {
       rain.settings.maxDrops = this.worldRainEnabled
-        ? (rain.actor === this.andy ? 2400 : 1800)
+        ? (rain.actor === this.andy ? 1200 : 900)
         : rain.drops.length;
     }
     this.ambientRain.update(delta, audioLevels);
@@ -578,9 +584,13 @@ export class SmashStage {
   // opaque so the field can key them); solid=false is the classic view.
   drawWorld(ctx, solid) {
     ctx.imageSmoothingEnabled = false;
-    // Backdrop: the neon city plate with a few live star twinkles.
-    if (this.background) {
-      ctx.drawImage(this.background, 0, 0, this.width, this.height);
+    // Backdrop: a photo cityscape once loaded, else the painted neon plate —
+    // either way a few live star twinkles keep the sky alive.
+    const backdrop = this.photoBackdrops.length
+      ? this.photoBackdrops[this.backdropIndex % this.photoBackdrops.length]
+      : this.background;
+    if (backdrop) {
+      ctx.drawImage(backdrop, 0, 0, this.width, this.height);
       for (const s of this.stars) {
         ctx.globalAlpha = 0.2 + 0.25 * (1 + Math.sin(this.time * 1.7 + s.phase)) / 2;
         ctx.fillStyle = '#cfe8f2';
@@ -670,8 +680,6 @@ export class SmashStage {
       ctx.restore();
     }
 
-    for (const p of this.projectiles) p.draw(ctx);
-
     for (const dog of this.dogs) dog.draw(ctx);
 
     // Attack arcs: forward slash, rising slash, low sweep, double spin.
@@ -687,11 +695,11 @@ export class SmashStage {
       ctx.save();
       ctx.translate(f.x, f.y);
       ctx.globalAlpha = 1 - k * 0.8;
-      ctx.strokeStyle = name.includes('smash') || name === 'golfswing'
+      ctx.strokeStyle = name.includes('smash')
         ? (isEliseo ? '#54e6b4' : '#ffd34d')
         : name.includes('tilt') ? (isEliseo ? '#b8ffe4' : '#9adcff')
         : (isEliseo ? '#b8ffe4' : '#eafcff');
-      ctx.lineWidth = (name.includes('smash') || name === 'golfswing' ? 6 : 4) - k * 3;
+      ctx.lineWidth = (name.includes('smash') ? 6 : 4) - k * 3;
       ctx.beginPath();
       if (move.box === 'up' || name === 'utilt' || name === 'usmash') {
         ctx.arc(0, -20, 45 + k * 22, -2.6 + k * 1.2, -0.5 + k * 1.2);
@@ -800,6 +808,9 @@ export class SmashStage {
       this.worldRain.draw(ctx);
       ctx.save();
       this.applyCamera(ctx);
+      // The world field already rains over the fighters; keep the focused
+      // trails as a faint crisp pass so bodies stay readable without doubling.
+      ctx.globalAlpha = 0.65;
       ctx.drawImage(this.trails, 0, 0);
       ctx.restore();
     } else {
