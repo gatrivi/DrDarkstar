@@ -235,6 +235,23 @@ test('glass rain droplets slide down the pane and never leave it', () => {
   assert.ok(free.vy > before, 'release accelerates down the glass');
 });
 
+test('glass rain clamps outward drift at both pane edges', () => {
+  const glass = new GlassRain(80, 120, 0);
+  const delta = 1 / 60;
+  glass.drops = [
+    { x: 0, y: 30, vy: 10, r: 1, hold: 0, seed: -Math.PI / 2 - delta * 1.7 },
+    { x: 80, y: 30, vy: 10, r: 1, hold: 0, seed: Math.PI / 2 - delta * 1.7 },
+  ];
+  glass.update(delta);
+  assert.equal(glass.drops[0].x, 0);
+  assert.equal(glass.drops[1].x, 80);
+  for (const d of glass.drops) assert.ok(d.y > 30);
+  for (let i = 0; i < 600; i++) {
+    glass.update(delta);
+    for (const d of glass.drops) assert.ok(d.x >= 0 && d.x <= glass.w);
+  }
+});
+
 test('the relic hunter is a full cast member with an e-rad whip', () => {
   const relic = ROSTER.relic;
   assert.ok(relic, 'relic in the roster');

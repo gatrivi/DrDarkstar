@@ -46,7 +46,7 @@ try {
   await page.waitForFunction(()=>window.nightTest.stage.kind==='relic',null,{timeout:5000});
   assert.equal(await page.evaluate(()=>window.nightTest.stage.player.name),'RELIC HUNTER');
   await page.evaluate(()=>{const s=window.nightTest.stage;s.player.facing=1;});
-  await page.keyboard.press('j');
+  await page.keyboard.press('h');
   await page.waitForTimeout(200);
   assert.ok(await page.evaluate(()=>['relicWhip'].includes(window.nightTest.stage.player.action?.name)),'J casts the e-rad whip');
   await page.evaluate(()=>{window.nightTest.stage.reset();document.querySelector('#choose [data-hunter="blade"]').click();});
@@ -80,7 +80,7 @@ try {
   assert.ok(await page.evaluate(()=>window.nightTest.stage.ruinsBlend>.9),'the archive fades in');
   await page.screenshot({path:'output/night-hunters/ruins-breach.png'});
   await page.evaluate(()=>{const s=window.nightTest.stage;s.player.x=130;s.player.facing=1;});
-  await page.keyboard.press('j');
+  await page.keyboard.press('h');
   await page.waitForFunction(()=>window.nightTest.stage.relic.relay,null,{timeout:5000});
   await page.evaluate(()=>{const s=window.nightTest.stage;s.player.x=420;s.player.facing=1;});
   await page.keyboard.press('e');
@@ -126,8 +126,8 @@ try {
     check(stage.player.x>rollX+90,'roll moves the hunter');
 
     reset();let enemy=stage.enemies[0];enemy.x=stage.player.x+70;
-    key('KeyK');tick(45);const charge=stage.player.action?.charge;
-    check(charge>.65,'holding K charges the attack');key('KeyK',false);tick();
+    key('KeyJ');tick(45);const charge=stage.player.action?.charge;
+    check(charge>.65,'holding J charges the attack');key('KeyJ',false);tick();
     check(stage.player.action?.name==='golfswing','releasing K starts the heavy attack');tick(9);
     check(enemy.percent>33,'charged sword connects');
     const damage=enemy.percent;
@@ -160,32 +160,32 @@ try {
     check(stage.layout==='street' && stage.ledges.length===0,'street layout clears ledges');
 
     reset();enemy=stage.enemies[0];enemy.x=stage.player.x+65;
-    key('KeyJ');tick(12);key('KeyJ',false);
+    key('KeyJ');tick(8);key('KeyJ',false);tick(10);
     check(enemy.percent===15,'Blade primary is a melee sword hit');
     check(stage.rains[0].hits>0 && stage.rains[0].drops.some(d=>d.pixel),'rain samples actual character pixels');
 
     reset();enemy=stage.enemies[0];enemy.x=stage.player.x+190;
-    key('KeyL');tick();check(stage.player.frame===6,'throw starts with the shuriken windup sprite');
+    key('KeyH');tick();check(stage.player.frame===6,'throw starts with the shuriken windup sprite');
     tick(9);check(stage.player.frame===7,'throw shows its release sprite');
     check(stage.projectiles[0]?.kind==='shuriken' && stage.projectiles[0].angle!==0,'Blade throws a spinning shuriken');
     check(stage.projectiles[0].rain.drops.some(d=>d.pixel),'flying shuriken has its own rotating rain silhouette');
-    tick(8);check(stage.player.frame===8,'throw follows through');tick(12);key('KeyL',false);
+    tick(8);check(stage.player.frame===8,'throw follows through');tick(12);key('KeyH',false);
     check(enemy.percent===14,'Blade ranged shuriken connects');
 
     reset();enemy=stage.enemies[0];enemy.x=stage.player.x+65;enemy.facing=-1;
-    key('KeyE');tick();check(stage.player.frame===9,'Blade raises his guard');tick(8);
-    check(stage.player.frame===10 && stage.player.action?.name==='block','holding E maintains the sword guard');
+    key('KeyL');tick();check(stage.player.frame===9,'Blade raises his guard');tick(8);
+    check(stage.player.frame===10 && stage.player.action?.name==='block','holding L maintains the sword guard');
     stage.hit(enemy,stage.player,NIGHT_MOVES.claw);tick();
     check(stage.player.percent===0 && stage.stats.blocks===1 && stage.player.frame===11,'front attack triggers the block impact sprite');
     const guardAfterHit=stage.player.guard;
-    key('KeyE',false);tick(80);
+    key('KeyL',false);tick(80);
     check(stage.player.action===null && stage.player.guard>guardAfterHit,'releasing block recovers guard');
-    key('KeyE');tick(9);stage.player.guard=8;stage.hit(enemy,stage.player,NIGHT_MOVES.claw);tick();
-    check(stage.player.guardBroken>0 && stage.player.action===null,'depleted guard breaks');key('KeyE',false);
-    reset('deckard');key('KeyE');tick(9);
+    key('KeyL');tick(9);stage.player.guard=8;stage.hit(enemy,stage.player,NIGHT_MOVES.claw);tick();
+    check(stage.player.guardBroken>0 && stage.player.action===null,'depleted guard breaks');key('KeyL',false);
+    reset('deckard');key('KeyL');tick(9);
     check(stage.player.frame===10 && stage.player.action?.name==='block','Deckard has his own shield animation');
     stage.enemies[0].facing=1;stage.hit(stage.enemies[0],stage.player,NIGHT_MOVES.claw);tick();
-    check(stage.player.percent>0,'guard is vulnerable from behind');key('KeyE',false);
+    check(stage.player.percent>0,'guard is vulnerable from behind');key('KeyL',false);
 
     reset();stage.render(document.querySelector('#night-game').getContext('2d'));
     check(stage.worldRainEnabled && stage.worldRain.rain.hits>10000,'full-scene rain samples the rendered city');
@@ -199,13 +199,13 @@ try {
     document.querySelector('.hunter-tabs [data-hunter="deckard"]').click();
     check(stage.player.kind==='deckard' && stage.player.x===swapX && stage.player.percent===37 && stage.player.stocks===2,'switch keeps position, damage and lives');
     enemy=stage.enemies[0];enemy.x=stage.player.x+200;
-    key('KeyJ');tick(32);key('KeyJ',false);
+    key('KeyH');tick(32);key('KeyH',false);
     check(enemy.percent===14 && stage.stats.shots===1,'Deckard primary fires a working blaster');
     reset('deckard');stage.player.x=470;stage.player.facing=-1;enemy=stage.enemies[0];enemy.x=270;
-    key('KeyJ');tick(32);key('KeyJ',false);
+    key('KeyH');tick(32);key('KeyH',false);
     check(enemy.percent===14,'blaster fires left after facing changes');
     reset('deckard');enemy=stage.enemies[0];enemy.x=stage.player.x+220;
-    key('KeyK');tick(55);key('KeyK',false);tick(38);
+    key('KeyJ');tick(55);key('KeyJ',false);tick(38);
     check(enemy.percent>38,'Deckard charged blaster connects at range');
 
     reset();key('KeyP');tick();key('KeyP',false);const pausedAt=stage.time;tick(25);
@@ -230,7 +230,7 @@ try {
         for(let attempt=0;attempt<8&&!target.dead;attempt++){
           stage.player.x=target.x-150;target.vx=0;target.vy=0;target.y=stage.platform.y-target.renderHeight/2;
           if(attempt===0)target.percent=target.limit-14; // one grounded shot lands the KO
-          key('KeyJ');tick(40);key('KeyJ',false);tick();
+          key('KeyH');tick(40);key('KeyH',false);tick();
         }
         check(target.dead,`primary fire defeats ${target.kind} in wave ${wave+1}`);
       }
@@ -256,7 +256,7 @@ try {
     check(stage.state==='playing' && stage.player.stocks===3,'retry is playable');
     stage.driveEnemy=driveEnemy;
     reset('blade');stage.player.x=350;stage.enemies[0].x=430;
-    key('KeyK');tick(35);key('KeyK',false);tick(9);stage.render(document.querySelector('#night-game').getContext('2d'));
+    key('KeyJ');tick(35);key('KeyJ',false);tick(9);stage.render(document.querySelector('#night-game').getContext('2d'));
     return { checks:results, rainHits:stage.rains[0].hits };
   });
   await page.screenshot({path:'output/night-hunters/combat.png',fullPage:true});

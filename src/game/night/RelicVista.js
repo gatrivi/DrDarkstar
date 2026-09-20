@@ -10,7 +10,8 @@ const FOLIAGE = {
   vines: [654,735,883,1047],
 };
 export const RELIC_RELAY_X = 210, RELIC_MURAL_X = 430, RELIC_MEMORY_X = 545;
-export const RUINS_EXIT_X = 210; // hysteresis: walk back east past this to return
+export const RUINS_ENTRY_X = 868;  // the breach lands at the vista's east edge
+export const RUINS_EXIT_X = 300;   // hysteresis: walk east past this to return
 
 export class RelicVista {
   constructor() {

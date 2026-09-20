@@ -1,11 +1,14 @@
 import { AndyFighter, P1_BINDINGS, P2_BINDINGS } from './AndyFighter.js';
 import { EliseoFighter } from './Eliseo.js';
+import { SimonFighter } from './Simon.js';
 import { Projectile } from './Projectile.js';
 import { Retriever } from './Retriever.js';
 import { SnakeSummon } from './SnakeSummon.js';
 import { CollisionRain } from '../../effects/CollisionRain.js';
 import { SmashSfx } from './Sfx.js';
 import { SHIELD, chargeBonus, shieldstun, hitstopFor, shakeFor, KO_HITSTOP, MAX_CHARGE, COUNTER_HIT_MULT } from './Moveset.js';
+import { WorldRain } from '../night/WorldRain.js';
+import { buildBackground, buildPlatformArt, twinkles } from './StageArt.js';
 
 // Pure helpers (unit-tested in tests/smash.test.mjs)
 export function knockback(percent, base, scaling, vegan = false) {
@@ -55,12 +58,12 @@ export class SmashStage {
     this.shake = 0;      // screen-shake pixels, decays fast
     this.debug = false;  // H toggles hurtbox/hitbox overlay for testing
     this.time = 0;
-    this.ai = { timer: 0, plan: 'chase', shieldT: 0, chargeT: 0 };
 
-    const PlayerClass = player === 'eliseo' ? EliseoFighter : AndyFighter;
+    const ROSTER = { andy: AndyFighter, eliseo: EliseoFighter, simon: SimonFighter };
+    const PlayerClass = ROSTER[player] ?? AndyFighter;
     this.andy = new PlayerClass({
       input, width, height, bindings: P1_BINDINGS,
-      name: player === 'eliseo' ? 'ELISEO' : 'ANDY',
+      name: player === 'eliseo' ? 'ELISEO' : player === 'simon' ? 'SIMON' : 'ANDY',
       spawnX: width * 0.3,
     });
     this.dummy = new AndyFighter({
@@ -78,9 +81,36 @@ export class SmashStage {
     // Rain forms the fighters' bodies: bigger, brighter drops read as a character.
     for (const rain of this.rains) Object.assign(rain.settings, { size: 1.5, reveal: 1.5, smoothing: 8 });
     this.cam = { x: width / 2, y: height * 0.45, zoom: 1.4 };
+    // Full-world pixel rain (the Night Hunters solution): the whole stage —
+    // city plate, slab, fighters, projectiles — renders into a half-res scene
+    // that WorldRain samples, so everything emerges through falling drops.
+    this.worldRainEnabled = true;
+    this.visualFrame = 0;
+    this.visualDelta = 1 / 60;
+    this.visualAudio = { bass: 0, mid: 0, treble: 0, effect: 0 };
+    this.trails = document.createElement('canvas');
+    this.trails.width = width; this.trails.height = height;
+    this.trailCtx = this.trails.getContext('2d');
+    this.scene = document.createElement('canvas');
+    this.scene.width = Math.ceil(width / 2); this.scene.height = Math.ceil(height / 2);
+    this.sceneCtx = this.scene.getContext('2d', { willReadFrequently: true });
+    this.sceneCtx.setTransform(0.5, 0, 0, 0.5, 0, 0);
+    this.worldRain = new WorldRain(width, height);
+    // Painted stage art: neon city plate + riveted metal slab.
+    this.background = buildBackground();
+    this.stars = twinkles(width, height);
+    this.platformArt = buildPlatformArt(this.platform.x1 - this.platform.x0);
     // Fighter action hooks (called from AndyFighter.controls).
     this.onDash = () => this.sfx.play('dash');
     this.onSuper = () => this.sfx.play('super');
+  }
+
+  // Toggle the full-world rain field. Off falls back to the classic look:
+  // flat night sky, ambient rain, translucent fighters with focused rain.
+  toggleWorldRain(enabled = !this.worldRainEnabled) {
+    this.worldRainEnabled = enabled;
+    this.worldRain?.reset();
+    return this.worldRainEnabled;
   }
 
   setMode(mode) {
@@ -122,6 +152,13 @@ export class SmashStage {
       rain.resize(width, height);
       rain.drops = rain.drops.map(() => rain.makeDrop(true));
     }
+    // Rebuild the sized rain buffers and repaint the slab for the new width.
+    this.scene.width = Math.ceil(width / 2); this.scene.height = Math.ceil(height / 2);
+    this.sceneCtx.setTransform(0.5, 0, 0, 0.5, 0, 0);
+    this.worldRain = new WorldRain(width, height);
+    this.trails.width = width; this.trails.height = height;
+    this.platformArt = buildPlatformArt(this.platform.x1 - this.platform.x0);
+    this.stars = twinkles(width, height);
   }
 
   popup(x, y, text, color = '#fff') {
@@ -129,114 +166,36 @@ export class SmashStage {
     this.popups.push({ x, y, text, color, time: 0 });
   }
 
-  // Dummy "AI": chase, space, and use the full kit — jabs, tilts, charged
-  // smashes, shields, and rolls — while staying on the slab.
-  driveDummy(delta) {
+  // Training dummy: stands idle where it is, facing the player. No attacks,
+  // no dodges, no wandering — you move it by walking into it (body push) or
+  // by hitting it. In versus mode the second player drives it instead.
+  driveDummy() {
     const d = this.dummy;
     if (this.mode !== 'cpu') return;
-    if (d.hitstun > 0 || d.action || d.respawnTimer > 0 || d.shieldBreakStun > 0 || d.shieldstun > 0) return;
-    const p = this.platform;
-    const minX = p.x0 + 70, maxX = p.x1 - 70;
-    // Never stroll off the edge; steer back to center when past the safe band.
-    if (d.x < minX) { d.vx = 200; d.facing = 1; return; }
-    if (d.x > maxX) { d.vx = -200; d.facing = -1; return; }
+    if (d.hitstun > 0 || d.action || d.respawnTimer > 0) return;
+    const dir = Math.sign(this.andy.x - d.x);
+    if (dir) d.facing = dir;
+  }
 
-    d.moveSeed += delta;
-    this.ai.timer -= delta;
-    const a = this.andy;
-    const dist = a.x - d.x;
-    const adist = Math.abs(dist);
-    const dir = Math.sign(dist) || 1;
-
-    // React to the player's incoming attack: shield or roll away.
-    const aAttacking = a.action && ['jab', 'punch', 'ftilt', 'utilt', 'dtilt', 'fsmash', 'golfswing', 'usmash', 'dsmash'].includes(a.action.name);
-    if (aAttacking && adist < 190 && d.onGround && Math.random() < 0.035) {
-      if (Math.random() < 0.55 && d.shieldHP > 15) {
-        d.shielding = true;
-        d.vx = 0;
-        if (d.frameIndex.guard != null) d.setFrame(d.frameIndex.guard);
-        this.ai.shieldT = 0.45 + Math.random() * 0.3;
-        this.ai.plan = 'shield';
-        this.ai.timer = this.ai.shieldT;
-        return;
-      }
-      d.facing = -dir;
-      d.startMove('roll');
-      d.dodgeDir = -dir;
-      this.sfx.play('roll');
-      return;
-    }
-    if (this.ai.plan === 'shield') {
-      d.shielding = true;
-      d.vx = 0;
-      if (this.ai.timer <= 0) { d.shielding = false; this.ai.plan = 'chase'; }
-      return;
-    }
-
-    // Finish a started smash charge, then let controls release handle it.
-    if (this.ai.plan === 'charge' && d.action?.name === 'windup') {
-      this.ai.chargeT -= delta;
-      d.action.charge = Math.min(MAX_CHARGE, (d.action.charge || 0) + delta);
-      if (this.ai.chargeT <= 0) {
-        const kind = d.action.smashKind || 'fsmash';
-        const charge = d.action.charge;
-        d.action = null;
-        d.startMove(kind, { charge });
-        this.sfx.play('smashRelease');
-        this.ai.plan = 'chase';
-      }
-      return;
-    }
-
-    if (this.ai.timer > 0) {
-      // Keep carrying out the current plan: drift toward the player.
-      if (this.ai.plan === 'chase') {
-        d.vx = dir * 190;
-        d.facing = dir;
-      }
-      return;
-    }
-
-    // New plan every beat.
-    if (adist > 150) {
-      this.ai.plan = Math.random() < 0.12 ? 'jump' : 'chase';
-      if (this.ai.plan === 'jump' && d.onGround) {
-        d.vy = -720; d.onGround = false; d.jumpsLeft = 1;
-        this.sfx.play('jump');
-      }
-      this.ai.timer = 0.35 + Math.random() * 0.3;
-      d.vx = dir * 190;
-      d.facing = dir;
-      return;
-    }
-    // In range: pick from the kit. Up-tilt when the player is above,
-    // low/down moves when they shield, smash sometimes for the pop.
-    d.facing = dir;
-    const r = Math.random();
-    if (a.y < d.y - 60 && r < 0.3) {
-      d.startMove('utilt'); this.sfx.play('tilt');
-    } else if ((a.shielding || r < 0.12) && d.onGround) {
-      d.startMove(r < 0.06 ? 'dsmash' : 'dtilt', r < 0.06 ? { charge: 0.2 } : undefined);
-      this.sfx.play(r < 0.06 ? 'smashRelease' : 'tilt');
-    } else if (r < 0.3) {
-      d.startMove('windup');
-      d.action.smashKind = 'fsmash';
-      this.ai.plan = 'charge';
-      this.ai.chargeT = 0.35 + Math.random() * 0.5;
-      this.sfx.play('smashCharge');
-    } else if (r < 0.55) {
-      d.startMove('ftilt'); this.sfx.play('tilt');
-    } else if (r < 0.8) {
-      d.startMove('jab'); this.sfx.play('attack');
-    } else {
-      // Whiff a roll behind them to stay slippery.
-      d.facing = dir;
-      d.startMove('roll');
-      d.dodgeDir = Math.random() < 0.5 ? dir : -dir;
-      d.facing = d.dodgeDir;
-      this.sfx.play('roll');
-    }
-    this.ai.timer = 0.4 + Math.random() * 0.35;
+  // Grounded fighters shove each other apart instead of stacking — Smash-style
+  // body push. This is what moves the idle dummy when you walk into it, and
+  // it works both ways: two players can shove each other around the slab.
+  pushBodies() {
+    const a = this.andy, b = this.dummy;
+    if (a.respawnTimer > 0 || b.respawnTimer > 0) return;
+    if (!a.onGround || !b.onGround) return;
+    if (a.hitstun > 0 || b.hitstun > 0 || a.shieldstun > 0 || b.shieldstun > 0) return;
+    if ((a.invuln ?? 0) > 0 || (b.invuln ?? 0) > 0 || a.dodgeActive() || b.dodgeActive()) return;
+    if (Math.abs(a.y - b.y) > Math.max(a.renderHeight, b.renderHeight) * 0.5) return;
+    const halfW = (a.renderWidth + b.renderWidth) * 0.3;
+    const overlap = halfW - Math.abs(a.x - b.x);
+    if (overlap <= 0) return;
+    const dir = Math.sign(a.x - b.x) || 1;
+    a.x += dir * overlap / 2;
+    b.x -= dir * overlap / 2;
+    const shove = Math.min(140, 30 + overlap * 2);
+    a.vx += dir * shove;
+    b.vx -= dir * shove;
   }
 
   // Returns 'hit' | 'block' | 'dodge' | 'ignore'.
@@ -305,6 +264,10 @@ export class SmashStage {
 
   update(delta, audioLevels) {
     this.time += delta;
+    // World-rain stepping needs the frame id, delta and audio even during hitstop.
+    this.visualFrame++;
+    this.visualDelta = delta;
+    this.visualAudio = audioLevels;
     this.shake = Math.max(0, this.shake - delta * 60);
     // Hitstop: fighters freeze on connect while sparks, popups and rain play on.
     if (this.hitstop > 0) {
@@ -322,8 +285,9 @@ export class SmashStage {
       }
     }
     this.andy.update(delta, this);
-    this.driveDummy(delta);
+    this.driveDummy();
     this.dummy.update(delta, this);
+    this.pushBodies();
 
     // Melee hitboxes vs the other fighter (supports multi-box down-smash).
     for (const [a, b] of [[this.andy, this.dummy], [this.dummy, this.andy]]) {
@@ -346,11 +310,12 @@ export class SmashStage {
       const move = f.moveTable[f.action?.name];
       if (move?.spawn && !f.action.spawned && f.action.time >= move.active[0]) {
         f.action.spawned = true;
-        if (move.spawn === 'retriever') {
+        if (move.spawn === 'retriever' || move.spawn === 'pitbull') {
           const dog = new Retriever({
             x: f.x - f.facing * f.renderWidth,
             groundY: this.platform.y,
             dir: f.facing,
+            variant: move.spawn,
           });
           dog.owner = f;
           this.dogs.push(dog);
@@ -459,8 +424,24 @@ export class SmashStage {
     for (const g of this.ghosts) g.time += delta;
     this.ghosts = this.ghosts.filter(g => g.time < 0.25);
 
+    // When the world field is on, fewer drops per fighter: the scene capture
+    // already rains over everything (same budget trick as Night Hunters).
+    for (const rain of this.rains) {
+      rain.settings.maxDrops = this.worldRainEnabled
+        ? (rain.actor === this.andy ? 2400 : 1800)
+        : rain.drops.length;
+    }
     this.ambientRain.update(delta, audioLevels);
     for (const rain of this.rains) rain.update(delta, audioLevels);
+
+    // Focused-rain streaks render into one decaying trails buffer instead of
+    // being redrawn from scratch each frame (Night Hunters' approach).
+    const t = this.trailCtx;
+    t.globalCompositeOperation = 'destination-out';
+    t.fillStyle = `rgba(0, 0, 0, ${1 - Math.exp(-delta * 20)})`;
+    t.fillRect(0, 0, this.width, this.height);
+    t.globalCompositeOperation = 'source-over';
+    for (const rain of this.rains) rain.draw(t);
   }
 
   drawHud(ctx) {
@@ -513,7 +494,7 @@ export class SmashStage {
     if (this.andy.veganGlow > 0) {
       ctx.font = '12px monospace';
       ctx.fillStyle = '#7de08a';
-      ctx.fillText(`VEGAN POWER ${this.andy.veganGlow.toFixed(1)}s`, this.width * 0.25, 202);
+      ctx.fillText(`${this.andy.buffLabel ?? 'VEGAN POWER'} ${this.andy.veganGlow.toFixed(1)}s`, this.width * 0.25, 202);
     }
     if (this.mode === 'cpu') {
       ctx.font = '11px monospace';
@@ -586,32 +567,53 @@ export class SmashStage {
     ctx.restore();
   }
 
-  render(ctx, delta = 0.016) {
-    this.updateCamera(delta);
-    ctx.fillStyle = '#02040a';
-    ctx.fillRect(0, 0, this.width, this.height);
-    ctx.save();
+  applyCamera(ctx) {
     ctx.translate(this.width / 2, this.height / 2);
     ctx.scale(this.cam.zoom, this.cam.zoom);
     ctx.translate(-this.cam.x, -this.cam.y);
+  }
+
+  // The whole battle layer, drawn identically in both presentation modes.
+  // solid=true renders into the half-res world-rain capture (fighters near
+  // opaque so the field can key them); solid=false is the classic view.
+  drawWorld(ctx, solid) {
+    ctx.imageSmoothingEnabled = false;
+    // Backdrop: the neon city plate with a few live star twinkles.
+    if (this.background) {
+      ctx.drawImage(this.background, 0, 0, this.width, this.height);
+      for (const s of this.stars) {
+        ctx.globalAlpha = 0.2 + 0.25 * (1 + Math.sin(this.time * 1.7 + s.phase)) / 2;
+        ctx.fillStyle = '#cfe8f2';
+        ctx.fillRect(s.x, s.y, 2, 2);
+      }
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = '#02040a';
+      ctx.fillRect(0, 0, this.width, this.height);
+    }
+    ctx.save();
+    this.applyCamera(ctx);
     // Impact shake: a dying random offset so smashes thump the camera.
     if (this.shake > 0.2) {
       ctx.translate((Math.random() - 0.5) * this.shake, (Math.random() - 0.5) * this.shake);
     }
-    this.ambientRain.draw(ctx);
 
-    // Floating battlefield: chunky slab with a lit top surface and stepped underside.
+    // Floating battlefield: riveted metal slab, lit edges, stepped underside.
     const p = this.platform;
-    ctx.fillStyle = '#101b2e';
-    ctx.fillRect(p.x0, p.y, p.x1 - p.x0, 18);
-    ctx.fillStyle = '#0b1420';
-    ctx.fillRect(p.x0 + 30, p.y + 18, (p.x1 - p.x0) - 60, 10);
-    ctx.fillRect(p.x0 + 90, p.y + 28, (p.x1 - p.x0) - 180, 8);
-    ctx.fillStyle = '#1e3a5f';
-    ctx.fillRect(p.x0, p.y, p.x1 - p.x0, 4);
-    ctx.fillStyle = '#49bcd3';
-    ctx.fillRect(p.x0, p.y, 26, 2);
-    ctx.fillRect(p.x1 - 26, p.y, 26, 2);
+    if (this.platformArt) {
+      ctx.drawImage(this.platformArt, p.x0, p.y);
+    } else {
+      ctx.fillStyle = '#101b2e';
+      ctx.fillRect(p.x0, p.y, p.x1 - p.x0, 18);
+      ctx.fillStyle = '#0b1420';
+      ctx.fillRect(p.x0 + 30, p.y + 18, (p.x1 - p.x0) - 60, 10);
+      ctx.fillRect(p.x0 + 90, p.y + 28, (p.x1 - p.x0) - 180, 8);
+      ctx.fillStyle = '#1e3a5f';
+      ctx.fillRect(p.x0, p.y, p.x1 - p.x0, 4);
+      ctx.fillStyle = '#49bcd3';
+      ctx.fillRect(p.x0, p.y, 26, 2);
+      ctx.fillRect(p.x1 - 26, p.y, 26, 2);
+    }
 
     // Contact shadows: a dark strip on the slab under whoever stands over it.
     for (const f of [this.andy, this.dummy]) {
@@ -632,17 +634,21 @@ export class SmashStage {
     }
 
     // The fighters: translucent pixel base with the rain forming their body.
-    // Intangible fighters (dodges, spawn protection) blink.
+    // In the world-rain capture they render near-opaque so the field can key
+    // them; intangible fighters (dodges, spawn protection) blink.
     for (const f of [this.andy, this.dummy]) {
       if (f.respawnTimer > 0) continue;
       ctx.save();
-      const blink = (f.invuln > 0) ? (Math.floor(this.time * 24) % 2 === 0 ? 0.25 : 0.6) : 0.5;
+      const blink = (f.invuln > 0) ? (Math.floor(this.time * 24) % 2 === 0 ? 0.25 : 0.6)
+        : solid ? 0.95 : 0.5;
       ctx.globalAlpha = blink;
       f.draw(ctx);
       ctx.restore();
     }
 
-    for (const rain of this.rains) rain.draw(ctx);
+    // Focused-rain streaks come from the decaying trails buffer; in world-rain
+    // mode they are overlaid after the field instead so bodies stay readable.
+    if (!solid) ctx.drawImage(this.trails, 0, 0);
 
     // Shield bubbles above the rain so they read clearly.
     for (const f of [this.andy, this.dummy]) {
@@ -730,6 +736,14 @@ export class SmashStage {
       ctx.restore();
     }
 
+    ctx.restore();
+  }
+
+  // Combat popups and the hitbox debug view stay above the rain field so
+  // they always read crisply, in both presentation modes.
+  drawOverlays(ctx) {
+    ctx.save();
+    this.applyCamera(ctx);
     // Combat popups.
     ctx.textAlign = 'center';
     for (const pop of this.popups) {
@@ -772,8 +786,34 @@ export class SmashStage {
         ctx.restore();
       }
     }
-
     ctx.restore();
+  }
+
+  render(ctx, delta = 0.016) {
+    this.updateCamera(delta);
+    if (this.worldRainEnabled && this.worldRain) {
+      // Everything emerges through the full-world rain field: render the
+      // battle into a half-res scene, step WorldRain over it, then overlay
+      // the crisp focused-rain trails so the bodies stay readable.
+      this.drawWorld(this.sceneCtx, true);
+      this.worldRain.step(this.scene, this.visualDelta, this.visualAudio, this.visualFrame);
+      this.worldRain.draw(ctx);
+      ctx.save();
+      this.applyCamera(ctx);
+      ctx.drawImage(this.trails, 0, 0);
+      ctx.restore();
+    } else {
+      // Classic look: flat night sky, ambient rain, translucent fighters.
+      // drawWorld applies its own camera — don't double it here.
+      ctx.fillStyle = '#02040a';
+      ctx.fillRect(0, 0, this.width, this.height);
+      ctx.save();
+      this.applyCamera(ctx);
+      this.ambientRain.draw(ctx);
+      ctx.restore();
+      this.drawWorld(ctx, false);
+    }
+    this.drawOverlays(ctx);
     this.drawHud(ctx);
   }
 }

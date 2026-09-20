@@ -6,9 +6,11 @@ export const WOODLAND_PLATFORMS = [
   { x: 1856, y: 448, w: 160, art: 'log', bounds: [1844, 399, 184, 118] },
 ];
 export const MEMORIES = [
-  { id: 'canopy', x: 549, y: 384, name: 'THE CANOPY', text: 'Above the path, the leaves hide a voice: “We planted these trees for someone we would never meet.”' },
-  { id: 'arch', x: 2192, y: 512, name: 'THE ROOTBOUND ARCH', text: 'Under the roots, a carving reads: “The forest did not bury us. It kept us.”' },
-  { id: 'watch', x: 2736, y: 320, name: 'THE OLD WATCH', text: 'A quiet perch above the machines: “If you have found this place, our story is not over.”' },
+  { id: 'canopy', x: 549, y: 384, name: 'THE CANOPY', text: 'Above the path, the leaves hide a voice: "We planted these trees for someone we would never meet."' },
+  { id: 'arch', x: 2192, y: 512, name: 'THE ROOTBOUND ARCH', text: 'Under the roots, a carving reads: "The forest did not bury us. It kept us."' },
+  { id: 'watch', x: 2736, y: 320, name: 'THE OLD WATCH', text: 'A quiet perch above the machines: "If you have found this place, our story is not over."' },
+  { id: 'skyline', x: 1200, y: 224, name: 'SKYLINE VISTA', text: 'Above the neon streets, the city stretches to the horizon.' },
+  { id: 'datalair', x: 360, y: 128, name: 'DATA LAIR', text: 'Deep within the tower, ancient cores still pulse.' },
 ];
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -18,6 +20,7 @@ export function makeLevel() {
   const fill = (x, y, w, h, top = 0) => {
     for (let r = y; r < y + h; r++) for (let c = x; c < x + w; c++) tiles[r][c] = r === y ? top : ((c + r) % 5 === 0 ? 3 : 2);
   };
+  // Lower ground platform (row 16-19)
   fill(0, 16, COLS, 4);
   // A low passage: 32 px clearance, versus 56 px standing / 29 px crouched.
   fill(23, 11, 7, 4, 1);
@@ -26,15 +29,32 @@ export function makeLevel() {
   fill(47, 10, 7, 1, 1);
   fill(73, 14, 4, 1, 1); fill(78, 12, 4, 1, 1);
   fill(83, 10, 7, 1, 1); fill(94, 13, 5, 1, 1);
+  // Elevated walkways at different heights for vertical exploration
+  // Elevated walkway at y=10 (higher up)
+  fill(5, 10, 30, 1, 1);
+  // Elevated walkway at y=6 (even higher)
+  fill(65, 6, 20, 1, 1);
+  // Elevated walkway at y=2 (rooftop level)
+  fill(80, 2, 15, 1, 1);
   // One short water gap, with a safe upper crossing.
   for (let r = 16; r < ROWS; r++) for (let c = 59; c < 62; c++) tiles[r][c] = -1;
+  // Vertical exploration pillars: using tile 13 (distant arch) as climbable structures
+  // Left pillar at x=30, spans from ground to rooftop
+  for (let r = 2; r < ROWS; r++) tiles[r][30] = 13;
+  // Right pillar at x=90, spans from ground to rooftop
+  for (let r = 2; r < ROWS; r++) tiles[r][90] = 13;
+  // Central pillar at x=60, partial height
+  for (let r = 8; r < ROWS; r++) tiles[r][60] = 13;
+  // Neon pipe structures (vertical) at x=35 and x=75
+  for (let r = 4; r < ROWS; r += 4) tiles[r][35] = 13;
+  for (let r = 4; r < ROWS; r += 4) tiles[r][75] = 13;
   return tiles;
 }
 
 export class LostWorld {
   constructor() { this.tiles = makeLevel(); this.reset(); }
   reset() {
-    this.player = { x: 112, y: 512, vx: 0, vy: 0, facing: 1, crouch: false, grounded: true, coyote: .1, jumpBuffer: 0, attack: 0, struck: false };
+    this.player = { x: 112, y: 512, vx: 0, vy: 0, facing: 1, crouch: false, grounded: true, coyote: .1, jumpBuffer: 0, attack: 0, struck: false, onLadder: false, ladderDir: 0 };
     this.relays = [{ x: 656, y: 480, on: false }, { x: 1680, y: 288, on: false }, { x: 2832, y: 288, on: false }];
     this.checkpoint = { x: 112, y: 512, zone: 0 };
     this.visited = new Set([0]); this.time = 0; this.complete = false;
@@ -43,6 +63,7 @@ export class LostWorld {
   }
   get powered() { return this.relays.filter(r => r.on).length; }
   body(x = this.player.x, y = this.player.y, crouch = this.player.crouch) { return { x: x - 11, y: y - (crouch ? 29 : 56), w: 22, h: crouch ? 29 : 56 }; }
+  isLadderTile(tile) { return tile === 13; }
   solids(box) {
     const result = [];
     const left = clamp(Math.floor(box.x / TILE), 0, COLS - 1), right = clamp(Math.floor((box.x + box.w) / TILE), 0, COLS - 1);
@@ -54,7 +75,7 @@ export class LostWorld {
   blocked(box) { return this.solids(box).some(s => overlap(box, s)); }
   say(message, duration = 4) { this.message = message; this.messageTime = duration; }
   respawn() {
-    Object.assign(this.player, { x: this.checkpoint.x, y: this.checkpoint.y, vx: 0, vy: 0, grounded: true, crouch: false, attack: 0 });
+    Object.assign(this.player, { x: this.checkpoint.x, y: this.checkpoint.y, vx: 0, vy: 0, grounded: true, crouch: false, attack: 0, onLadder: false, ladderDir: 0 });
     this.say('The water carries you back to the last beacon.');
   }
   update(dt, keys = {}) {
@@ -73,6 +94,20 @@ export class LostWorld {
     if (direction) p.facing = direction;
     p.vx = direction * (p.crouch ? 82 : 176);
     if (keys.whip && p.attack === 0) { p.attack = .42; p.struck = false; }
+    const tileR = Math.floor(p.y / TILE), tileC = Math.floor(p.x / TILE);
+    const onLadder = this.isLadderTile(this.tiles[tileR] && this.tiles[tileR][tileC]) ? 1 : 0;
+    if (onLadder && p.ladderDir !== 0) {
+      p.y = clamp(p.y + p.ladderDir * 180 * dt, 12, HEIGHT - 12);
+    } else if (onLadder && keys.up) {
+      p.ladderDir = -1;
+      p.y = clamp(p.y - 180 * dt, 12, HEIGHT - 12);
+    } else if (onLadder && keys.down) {
+      p.ladderDir = 1;
+      p.y = clamp(p.y + 180 * dt, 12, HEIGHT - 12);
+    } else {
+      p.ladderDir = 0;
+    }
+    if (!onLadder) p.ladderDir = 0;
     // Substeps keep collision stable even during an occasional slow frame.
     const steps = Math.ceil(dt / (1 / 120)), step = dt / steps;
     for (let i = 0; i < steps; i++) {

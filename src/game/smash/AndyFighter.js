@@ -18,6 +18,17 @@ export const P2_BINDINGS = {
   smash: ['Slash', 'Numpad3'], roll: ['ShiftRight', 'Numpad0', 'Quote'],
   up: ['ArrowUp'], down: ['ArrowDown'],
 };
+// Night Hunters keyboard: J attack (tap = light punch, hold = heavy windup,
+// release swings), H fire, K jump, L shield, A/D move, S crouch, Shift roll.
+// Smash Cousins keeps P1_BINDINGS untouched.
+export const NIGHT_BINDINGS = {
+  left: ['KeyA'], right: ['KeyD'], jump: ['KeyK', 'Space'],
+  shield: ['KeyL'], jab: ['KeyJ'], tilt: ['KeyH'],
+  smash: [], roll: ['ShiftLeft'], up: ['KeyW'], down: ['KeyS'],
+};
+// A J press shorter than this reads as the light attack; a longer hold is the
+// charged heavy that swings on release.
+export const NIGHT_LIGHT_WINDOW = 0.16;
 
 // Frame order shared by the procedural fallback sheet and the generated art
 // strip (AndySheet composes the art in this exact order).
@@ -39,7 +50,14 @@ const PALETTES = {
     jacket: '#241d24', jacketHi: '#3f3440', cloud: '#7d4bab', cloudEdge: '#e8e2d8',
     pants: '#3a2a3a', shoe: '#5a3a4a', eye: '#1c1c1c',
   },
+  simon: {
+    skin: '#e0a878', skinShade: '#c48d5e', hair: '#2a1c12',
+    cap: '#d97a2e', capDark: '#b05e1e',
+    jacket: '#e6e0d4', jacketHi: '#f4efe4', cloud: '#c9622e', cloudEdge: '#f2d8b8',
+    pants: '#3f5a78', shoe: '#4a3b2a', eye: '#1c1c1c',
+  },
 };
+export { PALETTES };
 const SWORD = { blade: '#d9e4ea', edge: '#f4faff', hilt: '#c9a227' };
 const HYLIAN = { body: '#2b5fd9', rim: '#c9a227', emblem: '#9aa7b0' };
 
@@ -233,6 +251,7 @@ function buildSpriteSheet(palette) {
   });
   return { sheet, pw: PW, ph: PH, frames: POSES.length };
 }
+export { buildSpriteSheet };
 
 // Sample skin/hair tones from the reference photo so the sprite reads as Andy.
 async function sampleTones() {
@@ -553,9 +572,18 @@ export class AndyFighter extends AnimatedSprite {
     if (input.isDown(...B.shield) && !this.onGround && this.vy > 0) this.vy += 1400 * delta;
 
     // Jab (neutral) vs tilt (with a direction held) — melee stick logic.
+    // Night Hunters: H is the dedicated fire key and a held J reads as the
+    // heavy windup (release swings); the jab-peek stays attack-only.
+    const heavyHeld = !!this.heavyOn;
+    const nightKit = (this.bindings || P1_BINDINGS) === NIGHT_BINDINGS;
+    const heavyPress = nightKit && !heavyHeld && B.jab.some((c) => input.pressed?.has(c) && !this.shielding);
     let jabPressed = false;
-    for (const code of B.jab) if (input.consume(code)) { jabPressed = true; break; }
-    if (jabPressed && !this.action && this.dropLag <= 0) {
+    for (const code of B.jab) if (!heavyHeld && input.consume(code)) { jabPressed = true; break; }
+    if (heavyPress && !this.action && this.dropLag <= 0 && this.moveTable.golfswing) {
+      this.heavyOn = true;
+      this.startMove('windup', { smashKind: 'golfswing' });
+      stage.sfx?.play('smashCharge');
+    } else if (jabPressed && !this.action && this.dropLag <= 0) {
       const held = input.isDown(...B.left, ...B.right, ...B.up, ...B.down);
       if (held && this.moveTable.ftilt) {
         const variant = this.tiltVariant(input, B);
@@ -592,7 +620,10 @@ export class AndyFighter extends AnimatedSprite {
     }
 
     // Smash: hold to charge (windup), release to fire. Direction picks variant.
-    const smashHeld = input.isDown(...B.smash);
+    // Night Hunters have no smash key: their J-heavy windup (heavyOn) charges
+    // here instead and releases through releaseHeavy.
+    const smashHeld = B.smash.length > 0 && input.isDown(...B.smash);
+    const heavyCharge = this.heavyOn && B.jab.some((c) => input.isDown(c));
     if (smashHeld && !this.action && this.onGround && this.dropLag <= 0) {
       this.startMove('windup');
       this.action.smashKind = this.smashVariant(input, B);
@@ -601,17 +632,19 @@ export class AndyFighter extends AnimatedSprite {
       stage.sfx?.play('smashCharge');
     }
     if (this.action?.name === 'windup') {
-      if (smashHeld) {
+      if (smashHeld || heavyCharge) {
         this.action.charge = Math.min(MAX_CHARGE, this.action.charge + delta);
-        const kind = this.smashVariant(input, B);
-        this.action.smashKind = kind;
-        const mv = this.moveTable[kind];
-        if (mv && this.frameIndex[mv.pose] != null) this.setFrame(this.frameIndex[mv.pose]);
-        if (input.isDown(...B.left, ...B.right)) {
-          const s = Number(input.isDown(...B.right)) - Number(input.isDown(...B.left));
-          if (s) this.facing = s;
+        if (smashHeld) {
+          const kind = this.smashVariant(input, B);
+          this.action.smashKind = kind;
+          const mv = this.moveTable[kind];
+          if (mv && this.frameIndex[mv.pose] != null) this.setFrame(this.frameIndex[mv.pose]);
+          if (input.isDown(...B.left, ...B.right)) {
+            const s = Number(input.isDown(...B.right)) - Number(input.isDown(...B.left));
+            if (s) this.facing = s;
+          }
         }
-      } else {
+      } else if (B.smash.length > 0) {
         let kind = this.action.smashKind || 'fsmash';
         if (!this.moveTable[kind] && this.moveTable.golfswing) kind = 'golfswing';
         const charge = this.action.charge;
@@ -625,6 +658,10 @@ export class AndyFighter extends AnimatedSprite {
         }
       }
     }
+
+    // Night Hunters heavy: J released mid-windup swings the stored heavy.
+    if (this.heavyOn) this.releaseHeavy(input, stage);
+
 
     // Cousins specials stay on the dummy-friendly legacy keys for P1 only.
     const isP1 = B === P1_BINDINGS || this.bindings === P1_BINDINGS;
@@ -640,6 +677,29 @@ export class AndyFighter extends AnimatedSprite {
         this.startMove('super');
         stage.onSuper?.(this);
       }
+    }
+  }
+
+  // Night Hunters heavy kit: J press starts windup, J release swings the
+  // stored heavy move. Fighters with no heavy move never enter heavyOn.
+  releaseHeavy(input, stage) {
+    const B = this.bindings || P1_BINDINGS;
+    if (B.jab.some((c) => input.isDown(c))) return; // still held: keep charging
+    this.heavyOn = false;
+    if (this.action?.name !== 'windup') return;
+    const charge = this.action.charge;
+    let kind = this.action.smashKind || 'golfswing';
+    this.action = null;
+    // A quick J tap is the light attack (never charged); a longer hold
+    // swings the heavy with the accumulated charge.
+    if (charge < NIGHT_LIGHT_WINDOW && this.moveTable.punch) {
+      this.startMove('punch');
+      stage.sfx?.play('attack');
+      return;
+    }
+    if (this.moveTable[kind]) {
+      this.startMove(kind, { charge });
+      stage.sfx?.play('smashRelease');
     }
   }
 

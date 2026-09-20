@@ -115,22 +115,26 @@ export async function loadAndySheet({ tint = false } = {}) {
   }
   const isBg = (i) => Math.abs(bright[i] - 219) < BG_TOL || Math.abs(bright[i] - 155) < BG_TOL;
 
-  // Flood fill from the sheet borders through bg-colored pixels.
+  // Flood fill from the sheet borders through bg-colored pixels. Pixels are
+  // marked the moment they are enqueued — the stack is exactly W*H, so a
+  // mark-on-pop fill would overflow it on a full checkerboard and silently
+  // strand most of the background opaque.
   const removed = new Uint8Array(W * H);
   const stack = new Int32Array(W * H);
   let head = 0;
-  for (let x = 0; x < W; x++) { stack[head++] = x; stack[head++] = (H - 1) * W + x; }
-  for (let y = 0; y < H; y++) { stack[head++] = y * W; stack[head++] = y * W + W - 1; }
+  const enqueue = (i) => {
+    if (!removed[i] && isBg(i)) { removed[i] = 1; stack[head++] = i; }
+  };
+  for (let x = 0; x < W; x++) { enqueue(x); enqueue((H - 1) * W + x); }
+  for (let y = 0; y < H; y++) { enqueue(y * W); enqueue(y * W + W - 1); }
   let cursor = 0;
   while (cursor < head) {
     const i = stack[cursor++];
-    if (removed[i] || !isBg(i)) continue;
-    removed[i] = 1;
     const x = i % W, y = (i / W) | 0;
-    if (x > 0) stack[head++] = i - 1;
-    if (x < W - 1) stack[head++] = i + 1;
-    if (y > 0) stack[head++] = i - W;
-    if (y < H - 1) stack[head++] = i + W;
+    if (x > 0) enqueue(i - 1);
+    if (x < W - 1) enqueue(i + 1);
+    if (y > 0) enqueue(i - W);
+    if (y < H - 1) enqueue(i + W);
   }
 
   // Morphological closing on the kept mask (dilate then erode).

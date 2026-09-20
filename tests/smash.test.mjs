@@ -5,6 +5,7 @@ import {
 } from '../src/game/smash/SmashStage.js';
 import { ELISEO_MOVES, ELISEO_POSES } from '../src/game/smash/Eliseo.js';
 import { ANDY_POSES } from '../src/game/smash/AndyFighter.js';
+import { SIMON_MOVES, SIMON_POSES } from '../src/game/smash/Simon.js';
 import { MOVES as ANDY_MOVES, SHIELD, shieldstun, chargeBonus, hitstopFor, shakeFor, KO_HITSTOP, MAX_CHARGE, CHARGE_DAMAGE_MULT, COUNTER_HIT_MULT } from '../src/game/smash/Moveset.js';
 
 // Full melee-inspired kit both fighters must answer to.
@@ -21,6 +22,33 @@ test('Eliseo move table covers every control input', () => {
 test('Andy move table covers the full kit', () => {
   for (const key of [...KIT, 'punch', 'golfswing', 'serve']) {
     assert.ok(key in ANDY_MOVES, `missing move: ${key}`);
+  }
+});
+
+test('Simon move table covers every control input', () => {
+  // SimonFighter rides the same AndyFighter.controls dispatch.
+  for (const key of [...KIT, 'punch', 'golfswing', 'serve']) {
+    assert.ok(key in SIMON_MOVES, `missing move: ${key}`);
+  }
+});
+
+test('every Simon move pose exists in his spritesheet', () => {
+  for (const [name, move] of Object.entries(SIMON_MOVES)) {
+    assert.ok(SIMON_POSES.includes(move.pose), `move ${name} uses unknown pose ${move.pose}`);
+  }
+});
+
+test('Simon kit matches the melee hierarchy and box directions', () => {
+  assert.ok(SIMON_MOVES.jab.damage < SIMON_MOVES.ftilt.damage, 'tilt should out-damage jab');
+  assert.ok(SIMON_MOVES.ftilt.damage < SIMON_MOVES.fsmash.damage, 'smash should out-damage tilt');
+  assert.ok(SIMON_MOVES.fsmash.chargeable, 'forward smash must be chargeable');
+  assert.ok(SIMON_MOVES.usmash.chargeable && SIMON_MOVES.dsmash.chargeable, 'all smashes charge');
+  assert.equal(SIMON_MOVES.utilt.box, 'up');
+  assert.equal(SIMON_MOVES.dsmash.box, 'both');
+  assert.equal(SIMON_MOVES.dtilt.box, 'low');
+  for (const name of ['roll', 'spot', 'airdodge']) {
+    const [a, b] = SIMON_MOVES[name].invuln;
+    assert.ok(a > 0 && b > a && SIMON_MOVES[name].duration > b, `${name} invuln window malformed`);
   }
 });
 

@@ -1,0 +1,30 @@
+TAP version 13
+# Subtest: complete expedition is traversable from spawn with ordinary movement
+ok 1 - complete expedition is traversable from spawn with ordinary movement
+  ---
+  duration_ms: 74.8571
+  ...
+# Subtest: low tunnel blocks standing and prevents uncrouching beneath its ceiling
+ok 2 - low tunnel blocks standing and prevents uncrouching beneath its ceiling
+  ---
+  duration_ms: 9.2468
+  ...
+# Subtest: whip respects facing, height and solid walls; relays activate once
+ok 3 - whip respects facing, height and solid walls; relays activate once
+  ---
+  duration_ms: 7.4601
+  ...
+# Subtest: water returns to a beacon without clearing relays, and sealed archive stays locked
+ok 4 - water returns to a beacon without clearing relays, and sealed archive stays locked
+  ---
+  duration_ms: 7.9351
+  ...
+1..4
+# tests 4
+# suites 0
+# pass 4
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 474.5211

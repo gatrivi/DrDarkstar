@@ -9,7 +9,7 @@ import { WORLD, NIGHT_MOVES, overlaps, hitTarget, blockHit, projectileSweep, vul
   SCORE, scoreForHit, scoreForKO, comboMult, bountyIdValid, bountyPayout, boardRank, boardInsert } from './Combat.js';
 import { ZEN, inNoodleBar, pastGate, photoLog, filmStrip, mellowLevel, atBreach } from './ZenZone.js';
 import { CANTEEN, CANTEEN_LOGS, GlassRain } from './Canteen.js';
-import { RelicVista, RELIC_RELAY_X, RELIC_MURAL_X, RELIC_MEMORY_X, RUINS_EXIT_X } from './RelicVista.js';
+import { RelicVista, RELIC_RELAY_X, RELIC_MURAL_X, RELIC_MEMORY_X, RUINS_EXIT_X, RUINS_ENTRY_X } from './RelicVista.js';
 
 export class NightStage {
   constructor({ input, sound }) {
@@ -185,6 +185,9 @@ export class NightStage {
       this.ruins = true;
       this.streetKind = this.kind;
       if (this.kind !== 'relic') { this.kind = 'relic'; this.player.setKind('relic'); }
+      // Enter the woods at its east edge so the round trip reads as one
+      // continuous walk instead of teleporting deeper into the ruins.
+      this.player.x = RUINS_ENTRY_X;
       this.announce('THE WEST BREACH', 'THE RAIN THINS. OLD STONE LISTENS.', '#7fffe0');
     } else if (this.ruins && this.player.x > RUINS_EXIT_X) {
       this.ruins = false;

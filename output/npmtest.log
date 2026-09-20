@@ -1,0 +1,309 @@
+
+> test
+> node --test tests/rain.test.mjs tests/smash.test.mjs tests/night.test.mjs tests/lost.test.mjs
+
+TAP version 13
+# Subtest: complete expedition is traversable from spawn with ordinary movement
+ok 1 - complete expedition is traversable from spawn with ordinary movement
+  ---
+  duration_ms: 28.5931
+  ...
+# Subtest: low tunnel blocks standing and prevents uncrouching beneath its ceiling
+ok 2 - low tunnel blocks standing and prevents uncrouching beneath its ceiling
+  ---
+  duration_ms: 5.0426
+  ...
+# Subtest: whip respects facing, height and solid walls; relays activate once
+ok 3 - whip respects facing, height and solid walls; relays activate once
+  ---
+  duration_ms: 2.3207
+  ...
+# Subtest: water returns to a beacon without clearing relays, and sealed archive stays locked
+ok 4 - water returns to a beacon without clearing relays, and sealed archive stays locked
+  ---
+  duration_ms: 2.4773
+  ...
+# Subtest: woodland route reaches the canopy memory, which cannot be read from below
+ok 5 - woodland route reaches the canopy memory, which cannot be read from below
+  ---
+  duration_ms: 9.3569
+  ...
+# Subtest: log platforms allow jumping from below and catch falling feet
+ok 6 - log platforms allow jumping from below and catch falling feet
+  ---
+  duration_ms: 3.2362
+  ...
+# Subtest: damage launches enemies and charged hits increase damage and knockback
+ok 7 - damage launches enemies and charged hits increase damage and knockback
+  ---
+  duration_ms: 1.9763
+  ...
+# Subtest: rolls, spawn protection and friendly teams reject hits
+ok 8 - rolls, spawn protection and friendly teams reject hits
+  ---
+  duration_ms: 0.525
+  ...
+# Subtest: projectile direction is preserved even when the shooter turns around
+ok 9 - projectile direction is preserved even when the shooter turns around
+  ---
+  duration_ms: 0.2357
+  ...
+# Subtest: projectile sweep detects a target crossed between frames in both directions
+ok 10 - projectile sweep detects a target crossed between frames in both directions
+  ---
+  duration_ms: 0.2178
+  ...
+# Subtest: sweep covers vertical travel so angled shots connect
+ok 11 - sweep covers vertical travel so angled shots connect
+  ---
+  duration_ms: 0.2991
+  ...
+# Subtest: aimShot points at the target within the deflection cap
+ok 12 - aimShot points at the target within the deflection cap
+  ---
+  duration_ms: 0.2907
+  ...
+# Subtest: charge releases into an attack and prevents unrelated move cancellation
+ok 13 - charge releases into an attack and prevents unrelated move cancellation
+  ---
+  duration_ms: 0.7049
+  ...
+# Subtest: front guard absorbs attacks, spends guard and keeps the defensive pose
+ok 14 - front guard absorbs attacks, spends guard and keeps the defensive pose
+  ---
+  duration_ms: 0.4148
+  ...
+# Subtest: blocking leaves the rear vulnerable and cannot absorb friendly fire
+ok 15 - blocking leaves the rear vulnerable and cannot absorb friendly fire
+  ---
+  duration_ms: 1.3892
+  ...
+# Subtest: guard breaks when depleted and cannot block again during recovery
+ok 16 - guard breaks when depleted and cannot block again during recovery
+  ---
+  duration_ms: 1.9833
+  ...
+# Subtest: hits score damage times ten, KOs pay by species plus charged bonus
+ok 17 - hits score damage times ten, KOs pay by species plus charged bonus
+  ---
+  duration_ms: 0.728
+  ...
+# Subtest: combo multiplier climbs every two hits and caps at five
+ok 18 - combo multiplier climbs every two hits and caps at five
+  ---
+  duration_ms: 1.8444
+  ...
+# Subtest: bounty table has three valid specialties with honest payouts
+ok 19 - bounty table has three valid specialties with honest payouts
+  ---
+  duration_ms: 0.6065
+  ...
+# Subtest: best board ranks and keeps the top five shared runs
+ok 20 - best board ranks and keeps the top five shared runs
+  ---
+  duration_ms: 0.4425
+  ...
+# Subtest: challenge links round-trip and reject garbage
+ok 21 - challenge links round-trip and reject garbage
+  ---
+  duration_ms: 0.8157
+  ...
+# Subtest: crouching shrinks the hurtbox so level bolts sail overhead
+ok 22 - crouching shrinks the hurtbox so level bolts sail overhead
+  ---
+  duration_ms: 0.2937
+  ...
+# Subtest: rooftop layout is one-way, inside the arena, and climbs by steps
+ok 23 - rooftop layout is one-way, inside the arena, and climbs by steps
+  ---
+  duration_ms: 0.31
+  ...
+# Subtest: uptown sanctuary sits left of the sector gate with the noodle bar inside it
+ok 24 - uptown sanctuary sits left of the sector gate with the noodle bar inside it
+  ---
+  duration_ms: 0.253
+  ...
+# Subtest: walking past the sector gate is the only way to start the hunt
+ok 25 - walking past the sector gate is the only way to start the hunt
+  ---
+  duration_ms: 0.424
+  ...
+# Subtest: esper film strip keeps the newest six exposures and cycles the log lines
+ok 26 - esper film strip keeps the newest six exposures and cycles the log lines
+  ---
+  duration_ms: 0.6594
+  ...
+# Subtest: the canteen door only opens from the noodle bar while strolling
+ok 27 - the canteen door only opens from the noodle bar while strolling
+  ---
+  duration_ms: 0.4395
+  ...
+# Subtest: glass rain droplets slide down the pane and never leave it
+ok 28 - glass rain droplets slide down the pane and never leave it
+  ---
+  duration_ms: 10.7669
+  ...
+# Subtest: the relic hunter is a full cast member with an e-rad whip
+ok 29 - the relic hunter is a full cast member with an e-rad whip
+  ---
+  duration_ms: 0.3036
+  ...
+# Subtest: the west breach damps the storm and opens onto the archive
+ok 30 - the west breach damps the storm and opens onto the archive
+  ---
+  duration_ms: 0.3914
+  ...
+# Subtest: pose blending fades transparent pixels without darkening their color
+ok 31 - pose blending fades transparent pixels without darkening their color
+  ---
+  duration_ms: 3.596
+  ...
+# Subtest: JPEG background key removes dark noise while preserving blue outlines and white body
+ok 32 - JPEG background key removes dark noise while preserving blue outlines and white body
+  ---
+  duration_ms: 0.584
+  ...
+# Subtest: pixel sampling preserves black, alpha, transparent holes and mirrored frame colors
+ok 33 - pixel sampling preserves black, alpha, transparent holes and mirrored frame colors
+  ---
+  duration_ms: 0.9196
+  ...
+# Subtest: drops traverse a bright interior and exit; brightness slows without reflecting
+ok 34 - drops traverse a bright interior and exit; brightness slows without reflecting
+  ---
+  duration_ms: 3.6579
+  ...
+# Subtest: frequency bands distinguish bass from treble at both common sample rates
+ok 35 - frequency bands distinguish bass from treble at both common sample rates
+  ---
+  duration_ms: 0.5
+  ...
+# Subtest: effect analysis responds to measured audio and releases to silence
+ok 36 - effect analysis responds to measured audio and releases to silence
+  ---
+  duration_ms: 9.4049
+  ...
+# Subtest: dense sampling covers transparent space and follows movement without attaching to solid pixels
+ok 37 - dense sampling covers transparent space and follows movement without attaching to solid pixels
+  ---
+  duration_ms: 1.7716
+  ...
+# Subtest: sampling cache changes with animation masks rather than reusing prior frame colors
+ok 38 - sampling cache changes with animation masks rather than reusing prior frame colors
+  ---
+  duration_ms: 0.5099
+  ...
+# Subtest: Eliseo move table covers every control input
+ok 39 - Eliseo move table covers every control input
+  ---
+  duration_ms: 2.8856
+  ...
+# Subtest: Andy move table covers the full kit
+ok 40 - Andy move table covers the full kit
+  ---
+  duration_ms: 0.5381
+  ...
+# Subtest: every Eliseo move pose exists in her spritesheet
+ok 41 - every Eliseo move pose exists in her spritesheet
+  ---
+  duration_ms: 0.8409
+  ...
+# Subtest: Eliseo has the full requested frame set
+ok 42 - Eliseo has the full requested frame set
+  ---
+  duration_ms: 0.5646
+  ...
+# Subtest: Andy has locomotion frames and all his move poses exist
+ok 43 - Andy has locomotion frames and all his move poses exist
+  ---
+  duration_ms: 0.6503
+  ...
+# Subtest: attack hierarchy: jab < tilt < smash damage
+ok 44 - attack hierarchy: jab < tilt < smash damage
+  ---
+  duration_ms: 0.2607
+  ...
+# Subtest: directional boxes: up moves hit above, down-smash hits both sides
+ok 45 - directional boxes: up moves hit above, down-smash hits both sides
+  ---
+  duration_ms: 0.4521
+  ...
+# Subtest: dodges have startup before intangibility (melee-style)
+ok 46 - dodges have startup before intangibility (melee-style)
+  ---
+  duration_ms: 0.3026
+  ...
+# Subtest: knockback grows with percent
+ok 47 - knockback grows with percent
+  ---
+  duration_ms: 0.7806
+  ...
+# Subtest: vegan power multiplies knockback by 1.5
+ok 48 - vegan power multiplies knockback by 1.5
+  ---
+  duration_ms: 0.8524
+  ...
+# Subtest: charge adds to base knockback
+ok 49 - charge adds to base knockback
+  ---
+  duration_ms: 0.3396
+  ...
+# Subtest: charge bonus caps at full charge and scales with base damage
+ok 50 - charge bonus caps at full charge and scales with base damage
+  ---
+  duration_ms: 1.5258
+  ...
+# Subtest: full charge deals 1.3671x damage (Melee)
+ok 51 - full charge deals 1.3671x damage (Melee)
+  ---
+  duration_ms: 0.2217
+  ...
+# Subtest: shield takes 0.7x damage (melee density)
+ok 52 - shield takes 0.7x damage (melee density)
+  ---
+  duration_ms: 0.1195
+  ...
+# Subtest: shieldstun grows with damage
+ok 53 - shieldstun grows with damage
+  ---
+  duration_ms: 0.2989
+  ...
+# Subtest: blockedByShield only while the bubble is up
+ok 54 - blockedByShield only while the bubble is up
+  ---
+  duration_ms: 0.3735
+  ...
+# Subtest: dodgedByInvuln covers rolls, spots and air-dodges
+ok 55 - dodgedByInvuln covers rolls, spots and air-dodges
+  ---
+  duration_ms: 0.5716
+  ...
+# Subtest: boxesOverlap detects touches and misses
+ok 56 - boxesOverlap detects touches and misses
+  ---
+  duration_ms: 0.2016
+  ...
+# Subtest: hitstop scales: jab < tilt < charged smash, KO longest
+ok 57 - hitstop scales: jab < tilt < charged smash, KO longest
+  ---
+  duration_ms: 0.258
+  ...
+# Subtest: shake grows with damage and caps
+ok 58 - shake grows with damage and caps
+  ---
+  duration_ms: 0.1806
+  ...
+# Subtest: blast zones trigger only past the margin
+ok 59 - blast zones trigger only past the margin
+  ---
+  duration_ms: 0.2436
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 59
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 201.6327

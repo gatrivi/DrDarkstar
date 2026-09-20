@@ -1,0 +1,245 @@
+// Generic loader for the generated cousin pose sheets (Eliseo, Simon).
+// Andy has his own module (AndySheet.js); this is the same pipeline
+// parameterized per character. The generator bakes a checkerboard into every
+// sheet, so the loader keys it out at runtime: dual-tone flood fill from the
+// borders, morphological closing to seal pinholes, feathered alpha on
+// silhouette edges, per-cell connected components (drops weapon bleed from
+// neighboring cells), and baseline-aligned composing into the engine's
+// horizontal-strip format. unitScale keeps world sizes identical to the old
+// 24x32 procedural sheets, so physics, reaches and knockback are untouched.
+
+const BG_TOL = 35;     // brightness distance to either checker gray
+const CLOSE_R = 6;     // morphological closing radius (seals pinholes)
+const COMP_MIN = 0.02; // drop border-touching components smaller than this share
+const FEATHER_IN = 30, FEATHER_OUT = 138; // silhouette edge alpha ramp
+const PAD = 8;
+
+export function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error(`sheet missing: ${src}`));
+    img.src = src;
+  });
+}
+
+function integralOf(data, w, h) {
+  const sat = new Int32Array((w + 1) * (h + 1));
+  for (let y = 0; y < h; y++) {
+    let row = 0;
+    for (let x = 0; x < w; x++) {
+      row += data[y * w + x];
+      sat[(y + 1) * (w + 1) + x + 1] = sat[y * (w + 1) + x + 1] + row;
+    }
+  }
+  return sat;
+}
+
+function boxSum(sat, w, h, x0, y0, x1, y1) {
+  x0 = Math.max(0, x0); y0 = Math.max(0, y0);
+  x1 = Math.min(w - 1, x1); y1 = Math.min(h - 1, y1);
+  return (sat[(y1 + 1) * (w + 1) + x1 + 1] - sat[y0 * (w + 1) + x1 + 1]
+    - sat[(y1 + 1) * (w + 1) + x0] + sat[y0 * (w + 1) + x0]);
+}
+
+// 4-connected components of `mask` inside a slice rect.
+function components(mask, W, x0, y0, x1, y1) {
+  const sw = x1 - x0 + 1, sh = y1 - y0 + 1;
+  const seen = new Uint8Array(sw * sh);
+  const comps = [];
+  const qx = new Int32Array(sw * sh);
+  const qy = new Int32Array(sw * sh);
+  const at = (x, y) => (y - y0) * sw + (x - x0);
+  for (let yy = y0; yy <= y1; yy++) {
+    for (let xx = x0; xx <= x1; xx++) {
+      if (seen[at(xx, yy)] || !mask[yy * W + xx]) continue;
+      let qh = 0, qt = 0;
+      qx[qt] = xx; qy[qt] = yy; qt++;
+      seen[at(xx, yy)] = 1;
+      const comp = { size: 0, touches: false, minx: xx, miny: yy, maxx: xx, maxy: yy, pixels: [] };
+      while (qh < qt) {
+        const ax = qx[qh], ay = qy[qh];
+        qh++; comp.size++;
+        comp.pixels.push(ay * W + ax);
+        if (ax < comp.minx) comp.minx = ax; if (ax > comp.maxx) comp.maxx = ax;
+        if (ay < comp.miny) comp.miny = ay; if (ay > comp.maxy) comp.maxy = ay;
+        if (ax === x0 || ax === x1 || ay === y0 || ay === y1) comp.touches = true;
+        if (ax > x0 && !seen[at(ax - 1, ay)] && mask[ay * W + ax - 1]) { seen[at(ax - 1, ay)] = 1; qx[qt] = ax - 1; qy[qt] = ay; qt++; }
+        if (ax < x1 && !seen[at(ax + 1, ay)] && mask[ay * W + ax + 1]) { seen[at(ax + 1, ay)] = 1; qx[qt] = ax + 1; qy[qt] = ay; qt++; }
+        if (ay > y0 && !seen[at(ax, ay - 1)] && mask[(ay - 1) * W + ax]) { seen[at(ax, ay - 1)] = 1; qx[qt] = ax; qy[qt] = ay - 1; qt++; }
+        if (ay < y1 && !seen[at(ax, ay + 1)] && mask[(ay + 1) * W + ax]) { seen[at(ax, ay + 1)] = 1; qx[qt] = ax; qy[qt] = ay + 1; qt++; }
+      }
+      comps.push(comp);
+    }
+  }
+  comps.sort((a, b) => b.size - a.size);
+  return comps;
+}
+
+export async function loadCousinSheet({ url, cols, rows, cells, enginePoses, poseCell, tint = false }) {
+  const img = await loadImage(url);
+  const src = document.createElement('canvas');
+  src.width = img.naturalWidth || img.width;
+  src.height = img.naturalHeight || img.height;
+  const W = src.width, H = src.height;
+  if (!W || !H || W < 100 || H < 100) throw new Error(`sheet too small: ${url}`);
+  const sctx = src.getContext('2d', { willReadFrequently: true });
+  sctx.drawImage(img, 0, 0);
+  const { data } = sctx.getImageData(0, 0, W, H);
+
+  const bright = new Float64Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    bright[i] = (data[i * 4] + data[i * 4 + 1] + data[i * 4 + 2]) / 3;
+  }
+
+  // The two checker grays differ per generated sheet (Andy's measure ~219 and
+  // ~156; the others drift brighter), so measure the dominant border tones
+  // instead of hardcoding them.
+  const hist = new Map();
+  const bump = (v) => {
+    const bucket = Math.round(v / 8) * 8;
+    hist.set(bucket, (hist.get(bucket) ?? 0) + 1);
+  };
+  for (let x = 0; x < W; x += 3) { bump(bright[x]); bump(bright[(H - 1) * W + x]); }
+  for (let y = 0; y < H; y += 3) { bump(bright[y * W]); bump(bright[y * W + W - 1]); }
+  const ranked = [...hist.entries()].sort((a, b) => b[1] - a[1]).map(([v]) => v);
+  const toneHi = ranked[0] ?? 219;
+  const toneLo = ranked.find((v) => Math.abs(v - toneHi) > 24) ?? 155;
+
+  const isBg = (i) => Math.abs(bright[i] - toneHi) < BG_TOL || Math.abs(bright[i] - toneLo) < BG_TOL;
+
+  // Flood fill from the sheet borders through bg-colored pixels. Pixels are
+  // marked the moment they are enqueued — the stack is exactly W*H, so a
+  // mark-on-pop fill would overflow it on a full checkerboard and silently
+  // strand most of the background opaque.
+  const removed = new Uint8Array(W * H);
+  const stack = new Int32Array(W * H);
+  let head = 0;
+  const enqueue = (i) => {
+    if (!removed[i] && isBg(i)) { removed[i] = 1; stack[head++] = i; }
+  };
+  for (let x = 0; x < W; x++) { enqueue(x); enqueue((H - 1) * W + x); }
+  for (let y = 0; y < H; y++) { enqueue(y * W); enqueue(y * W + W - 1); }
+  let cursor = 0;
+  while (cursor < head) {
+    const i = stack[cursor++];
+    const x = i % W, y = (i / W) | 0;
+    if (x > 0) enqueue(i - 1);
+    if (x < W - 1) enqueue(i + 1);
+    if (y > 0) enqueue(i - W);
+    if (y < H - 1) enqueue(i + W);
+  }
+
+  // Morphological closing on the kept mask (dilate then erode).
+  const kept = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) kept[i] = removed[i] ? 0 : 1;
+  const sat = integralOf(kept, W, H);
+  const dil = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      dil[y * W + x] = boxSum(sat, W, H, x - CLOSE_R, y - CLOSE_R, x + CLOSE_R, y + CLOSE_R) > 0 ? 1 : 0;
+    }
+  }
+  const sat2 = integralOf(dil, W, H);
+  const closed = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const ex0 = Math.max(0, x - CLOSE_R), ey0 = Math.max(0, y - CLOSE_R);
+      const ex1 = Math.min(W - 1, x + CLOSE_R), ey1 = Math.min(H - 1, y + CLOSE_R);
+      const full = (ex1 - ex0 + 1) * (ey1 - ey0 + 1);
+      closed[y * W + x] = boxSum(sat2, W, H, ex0, ey0, ex1, ey1) === full ? 1 : 0;
+    }
+  }
+
+  // Keyed RGBA with feathered silhouette edges.
+  const rgba = new ImageData(W, H);
+  const out = rgba.data;
+  for (let y = 0; y < H; y++) {
+    for (let x = 0; x < W; x++) {
+      const i = y * W + x, k = i * 4;
+      if (!closed[i]) {
+        out[k + 3] = 0;
+        continue;
+      }
+      out[k] = data[k]; out[k + 1] = data[k + 1]; out[k + 2] = data[k + 2];
+      let rs = 0, n = 0;
+      for (let ny = Math.max(0, y - 1); ny <= Math.min(H - 1, y + 1); ny++) {
+        for (let nx = Math.max(0, x - 1); nx <= Math.min(W - 1, x + 1); nx++) {
+          if (!closed[ny * W + nx]) { rs += bright[ny * W + nx]; n++; }
+        }
+      }
+      if (n === 0) {
+        out[k + 3] = 255;
+      } else {
+        const d = Math.abs(bright[i] - rs / n) * 3;
+        out[k + 3] = d < FEATHER_IN ? 0 : d > FEATHER_OUT ? 255 : Math.round(255 * (d - FEATHER_IN) / (FEATHER_OUT - FEATHER_IN));
+      }
+    }
+  }
+
+  // Slice the grid (with overlap), drop weapon-bleed slivers, autobbox.
+  const cw = W / cols, ch = H / rows;
+  const keepMask = new Uint8Array(W * H);
+  const bboxes = [];
+  let maxW = 0, maxH = 0;
+  for (let ci = 0; ci < cols * rows; ci++) {
+    const cx = ci % cols, cy = (ci / cols) | 0;
+    const x0 = Math.max(0, Math.round(cx * cw) - 2);
+    const y0 = Math.max(0, Math.round(cy * ch) - 2);
+    const x1 = Math.min(W - 1, Math.round((cx + 1) * cw) + 2);
+    const y1 = Math.min(H - 1, Math.round((cy + 1) * ch) + 2);
+    const comps = components(closed, W, x0, y0, x1, y1);
+    const biggest = comps.length ? comps[0].size : 0;
+    if (!biggest) throw new Error(`sheet cell ${ci} (${cells[ci] ?? ci}) is empty`);
+    let minx = Infinity, miny = Infinity, maxx = -1, maxy = -1;
+    for (const c of comps) {
+      if (c.touches && c.size < biggest * COMP_MIN) continue; // neighbor's weapon tip
+      for (const p of c.pixels) keepMask[p] = 1;
+      if (c.minx < minx) minx = c.minx; if (c.miny < miny) miny = c.miny;
+      if (c.maxx > maxx) maxx = c.maxx; if (c.maxy > maxy) maxy = c.maxy;
+    }
+    bboxes.push({ minx, miny, maxx, maxy });
+    if (maxx - minx + 1 > maxW) maxW = maxx - minx + 1;
+    if (maxy - miny + 1 > maxH) maxH = maxy - miny + 1;
+  }
+
+  // Compose the engine strip, baseline-aligned. Poses sharing an art cell
+  // reuse those pixels (same trick AndySheet uses for roll/guard/usmash).
+  const pw = maxW + PAD * 2, ph = maxH + PAD * 2;
+  const strip = document.createElement('canvas');
+  strip.width = pw * enginePoses.length;
+  strip.height = ph;
+  const out2 = strip.getContext('2d');
+  out2.imageSmoothingEnabled = false;
+  for (const pose of enginePoses) {
+    const cell = poseCell[pose];
+    if (cell == null) throw new Error(`no art cell for pose ${pose}`);
+    const bb = bboxes[cell];
+    const fw = bb.maxx - bb.minx + 1, fh = bb.maxy - bb.miny + 1;
+    const frame = out2.createImageData(fw, fh);
+    for (let yy = 0; yy < fh; yy++) {
+      for (let xx = 0; xx < fw; xx++) {
+        const sx = bb.minx + xx, sy = bb.miny + yy;
+        const di = (yy * fw + xx) * 4;
+        if (keepMask[sy * W + sx]) {
+          const si = (sy * W + sx) * 4;
+          frame.data[di] = out[si]; frame.data[di + 1] = out[si + 1];
+          frame.data[di + 2] = out[si + 2]; frame.data[di + 3] = out[si + 3];
+        }
+      }
+    }
+    out2.putImageData(frame, enginePoses.indexOf(pose) * pw + ((pw - fw) >> 1), ph - PAD - fh);
+  }
+
+  // Optional team glaze (training-dummy style recolor) over the art.
+  if (tint) {
+    out2.save();
+    out2.globalCompositeOperation = 'source-atop';
+    out2.globalAlpha = 0.28;
+    out2.fillStyle = '#b03a5b';
+    out2.fillRect(0, 0, strip.width, strip.height);
+    out2.restore();
+  }
+
+  return { sheet: strip, pw, ph, frames: enginePoses.length, unitScale: 32 / maxH };
+}

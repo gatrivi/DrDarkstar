@@ -1,0 +1,150 @@
+TAP version 13
+# Subtest: complete expedition is traversable from spawn with ordinary movement
+ok 1 - complete expedition is traversable from spawn with ordinary movement
+  ---
+  duration_ms: 48.1256
+  ...
+# Subtest: low tunnel blocks standing and prevents uncrouching beneath its ceiling
+ok 2 - low tunnel blocks standing and prevents uncrouching beneath its ceiling
+  ---
+  duration_ms: 11.9417
+  ...
+# Subtest: whip respects facing, height and solid walls; relays activate once
+ok 3 - whip respects facing, height and solid walls; relays activate once
+  ---
+  duration_ms: 3.7076
+  ...
+# Subtest: water returns to a beacon without clearing relays, and sealed archive stays locked
+ok 4 - water returns to a beacon without clearing relays, and sealed archive stays locked
+  ---
+  duration_ms: 2.0265
+  ...
+# Subtest: woodland route reaches the canopy memory, which cannot be read from below
+ok 5 - woodland route reaches the canopy memory, which cannot be read from below
+  ---
+  duration_ms: 8.2489
+  ...
+# Subtest: log platforms allow jumping from below and catch falling feet
+ok 6 - log platforms allow jumping from below and catch falling feet
+  ---
+  duration_ms: 4.2785
+  ...
+# Subtest: damage launches enemies and charged hits increase damage and knockback
+ok 7 - damage launches enemies and charged hits increase damage and knockback
+  ---
+  duration_ms: 12.9683
+  ...
+# Subtest: rolls, spawn protection and friendly teams reject hits
+ok 8 - rolls, spawn protection and friendly teams reject hits
+  ---
+  duration_ms: 2.1901
+  ...
+# Subtest: projectile direction is preserved even when the shooter turns around
+ok 9 - projectile direction is preserved even when the shooter turns around
+  ---
+  duration_ms: 0.8334
+  ...
+# Subtest: projectile sweep detects a target crossed between frames in both directions
+ok 10 - projectile sweep detects a target crossed between frames in both directions
+  ---
+  duration_ms: 0.9848
+  ...
+# Subtest: sweep covers vertical travel so angled shots connect
+ok 11 - sweep covers vertical travel so angled shots connect
+  ---
+  duration_ms: 1.5354
+  ...
+# Subtest: aimShot points at the target within the deflection cap
+ok 12 - aimShot points at the target within the deflection cap
+  ---
+  duration_ms: 1.7133
+  ...
+# Subtest: charge releases into an attack and prevents unrelated move cancellation
+ok 13 - charge releases into an attack and prevents unrelated move cancellation
+  ---
+  duration_ms: 5.9785
+  ...
+# Subtest: front guard absorbs attacks, spends guard and keeps the defensive pose
+ok 14 - front guard absorbs attacks, spends guard and keeps the defensive pose
+  ---
+  duration_ms: 1.3506
+  ...
+# Subtest: blocking leaves the rear vulnerable and cannot absorb friendly fire
+ok 15 - blocking leaves the rear vulnerable and cannot absorb friendly fire
+  ---
+  duration_ms: 0.877
+  ...
+# Subtest: guard breaks when depleted and cannot block again during recovery
+ok 16 - guard breaks when depleted and cannot block again during recovery
+  ---
+  duration_ms: 15.4234
+  ...
+# Subtest: hits score damage times ten, KOs pay by species plus charged bonus
+ok 17 - hits score damage times ten, KOs pay by species plus charged bonus
+  ---
+  duration_ms: 1.0631
+  ...
+# Subtest: combo multiplier climbs every two hits and caps at five
+ok 18 - combo multiplier climbs every two hits and caps at five
+  ---
+  duration_ms: 6.336
+  ...
+# Subtest: bounty table has three valid specialties with honest payouts
+ok 19 - bounty table has three valid specialties with honest payouts
+  ---
+  duration_ms: 1.2327
+  ...
+# Subtest: best board ranks and keeps the top five shared runs
+ok 20 - best board ranks and keeps the top five shared runs
+  ---
+  duration_ms: 1.6483
+  ...
+# Subtest: challenge links round-trip and reject garbage
+ok 21 - challenge links round-trip and reject garbage
+  ---
+  duration_ms: 2.7425
+  ...
+# Subtest: crouching shrinks the hurtbox so level bolts sail overhead
+ok 22 - crouching shrinks the hurtbox so level bolts sail overhead
+  ---
+  duration_ms: 1.3978
+  ...
+# Subtest: rooftop layout is one-way, inside the arena, and climbs by steps
+ok 23 - rooftop layout is one-way, inside the arena, and climbs by steps
+  ---
+  duration_ms: 0.8787
+  ...
+# Subtest: uptown sanctuary sits left of the sector gate with the noodle bar inside it
+ok 24 - uptown sanctuary sits left of the sector gate with the noodle bar inside it
+  ---
+  duration_ms: 2.5311
+  ...
+# Subtest: walking past the sector gate is the only way to start the hunt
+ok 25 - walking past the sector gate is the only way to start the hunt
+  ---
+  duration_ms: 2.9307
+  ...
+# Subtest: esper film strip keeps the newest six exposures and cycles the log lines
+ok 26 - esper film strip keeps the newest six exposures and cycles the log lines
+  ---
+  duration_ms: 1.5495
+  ...
+# Subtest: the canteen door only opens from the noodle bar while strolling
+ok 27 - the canteen door only opens from the noodle bar while strolling
+  ---
+  duration_ms: 1.0887
+  ...
+# Subtest: glass rain droplets slide down the pane and never leave it
+ok 28 - glass rain droplets slide down the pane and never leave it
+  ---
+  duration_ms: 21.991
+  ...
+1..28
+# tests 28
+# suites 0
+# pass 28
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 526.0303

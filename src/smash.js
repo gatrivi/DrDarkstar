@@ -22,6 +22,17 @@ const swapButton = document.querySelector('#swap');
 const modeButton = document.querySelector('#mode');
 const musicButton = document.querySelector('#music');
 const pauseButton = document.querySelector('#pause');
+const rainButton = document.querySelector('#rain');
+// World rain: the whole stage — city, slab, fighters — rendered through the
+// full-world pixel rain field (the Night Hunters technique).
+function rainLabel() {
+  return `World rain · N (${stage.worldRainEnabled ? 'ON' : 'OFF'})`;
+}
+function toggleRain() {
+  stage.toggleWorldRain();
+  rainButton.textContent = rainLabel();
+}
+rainButton.onclick = toggleRain;
 function pauseLabel() {
   return paused ? 'Resume · P' : 'Pause · P';
 }
@@ -43,22 +54,25 @@ catch (error) {
   status.textContent = 'Could not load the fighter. Reload to retry.';
   throw error;
 }
+// Swap cycles all three cousins: Andy → Eliseo → Simon.
+const SWAP_ORDER = ['andy', 'eliseo', 'simon'];
 swapButton.onclick = async () => {
   if (swapping) return;
   swapping = true;
-  player = player === 'andy' ? 'eliseo' : 'andy';
+  player = SWAP_ORDER[(SWAP_ORDER.indexOf(player) + 1) % SWAP_ORDER.length];
   swapButton.textContent = 'Loading…';
   const next = new SmashStage({ input, width, height, sound, player, mode: stage.mode });
   try {
     await next.load();
     stage = next;
     resize();
-    swapButton.textContent = `Swap fighter · C (${player === 'andy' ? 'ANDY' : 'ELISEO'})`;
+    swapButton.textContent = `Swap fighter · C (${player.toUpperCase()})`;
     modeButton.textContent = modeLabel();
+    rainButton.textContent = rainLabel();
     status.textContent = versusStatus();
   } catch (error) {
-    player = player === 'andy' ? 'eliseo' : 'andy';
-    swapButton.textContent = `Swap fighter · C (${player === 'andy' ? 'ANDY' : 'ELISEO'})`;
+    player = SWAP_ORDER[(SWAP_ORDER.indexOf(player) + SWAP_ORDER.length - 1) % SWAP_ORDER.length];
+    swapButton.textContent = `Swap fighter · C (${player.toUpperCase()})`;
     status.textContent = 'Could not load that fighter.';
   }
   swapping = false;
@@ -107,6 +121,7 @@ new GameLoop({
     if (input.consume('KeyC')) swapButton.click();
     if (input.consume('KeyT')) modeButton.click();
     if (input.consume('KeyM')) toggleMusic();
+    if (input.consume('KeyN')) toggleRain();
     if (input.consume('KeyH')) stage.debug = !stage.debug;
     if (input.consume('KeyR')) {
       for (const f of [stage.andy, stage.dummy]) f.percent = 0;
@@ -148,3 +163,6 @@ new GameLoop({
     }
   },
 }).start();
+
+// Live binding for headless probes/tests (same pattern as src/night.js).
+export { stage };

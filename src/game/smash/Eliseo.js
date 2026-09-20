@@ -1,10 +1,32 @@
 import { AndyFighter } from './AndyFighter.js';
+import { loadCousinSheet } from './SheetLoader.js';
 
 // Eliseo: the curl-headed cousin. Huge curly hair, dark jacket with spectral
 // green trim (Viego), a tiny snake familiar on his shoulder, and a green
-// spectral blade for the smash. Hand-drawn 24 x 32 pixel frames.
-export const ELISEO_POSES = ['idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard', 'aa', 'ftilt', 'utilt', 'dtilt', 'smash', 'usmash', 'dsmash', 'tilt'];
+// spectral blade for the smash. Hand-drawn 24 x 32 pixel frames stay as the
+// offline fallback; the generated art sheet loads first when available.
+export const ELISEO_POSES = ['idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard', 'aa', 'ftilt', 'utilt', 'dtilt', 'smash', 'usmash', 'dsmash', 'tilt', 'charge'];
 export const ELISEO_FRAME_INDEX = Object.fromEntries(ELISEO_POSES.map((name, i) => [name, i]));
+
+// Generated sheet (assets/eliseo): 4x4 grid, README slot order.
+const ELISEO_SHEET_URL = './assets/eliseo/eliseo-spritesheet-v1.png';
+const ELISEO_SHEET_CELLS = [
+  'idle', 'walk1', 'walk2', 'dash',
+  'jump', 'roll', 'aa', 'tilt',
+  'charge', 'smash', 'smash2', 'summon',
+  'possession', 'block', 'hurt', 'victory',
+];
+// Engine strip order: the full kit. Poses the art lacks reuse the closest
+// cell — tilts read through the tilt poke, smashes through impact/follow-through.
+const ELISEO_ENGINE_POSES = [
+  'idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard',
+  'aa', 'ftilt', 'utilt', 'dtilt', 'charge', 'smash', 'usmash', 'dsmash', 'tilt',
+];
+const ELISEO_POSE_CELL = {
+  idle: 0, walk1: 1, walk2: 2, dash: 3, jump: 4, roll: 5, guard: 13,
+  aa: 6, ftilt: 7, utilt: 8, dtilt: 7, charge: 8, smash: 9,
+  usmash: 10, dsmash: 10, tilt: 7,
+};
 
 const P = {
   skin: '#c98d5f', skinShade: '#a87148', hair: '#241a12', hairHi: '#3a2a1c',
@@ -207,7 +229,7 @@ export const ELISEO_MOVES = {
   },
   windup: {
     label: 'Ruined charge',
-    pose: 'smash', duration: Infinity, animRate: 0.3,
+    pose: 'charge', duration: Infinity, animRate: 0.3,
   },
   fsmash: {
     label: 'Ruined King smash',
@@ -274,6 +296,17 @@ export class EliseoFighter extends AndyFighter {
   }
 
   async load() {
-    this.applySheet(buildEliseoSheet());
+    // Generated art first; the hand-drawn sheet stays as the offline fallback.
+    try {
+      this.applySheet(await loadCousinSheet({
+        url: ELISEO_SHEET_URL,
+        cols: 4, rows: 4,
+        cells: ELISEO_SHEET_CELLS,
+        enginePoses: ELISEO_ENGINE_POSES,
+        poseCell: ELISEO_POSE_CELL,
+      }));
+    } catch {
+      this.applySheet(buildEliseoSheet());
+    }
   }
 }

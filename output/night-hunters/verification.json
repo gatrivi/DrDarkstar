@@ -6,7 +6,7 @@
     "roll starts from Shift",
     "roll dodges damage",
     "roll moves the hunter",
-    "holding K charges the attack",
+    "holding J charges the attack",
     "releasing K starts the heavy attack",
     "charged sword connects",
     "one swing cannot repeatedly damage the same target",
@@ -26,7 +26,7 @@
     "throw follows through",
     "Blade ranged shuriken connects",
     "Blade raises his guard",
-    "holding E maintains the sword guard",
+    "holding L maintains the sword guard",
     "front attack triggers the block impact sprite",
     "releasing block recovers guard",
     "depleted guard breaks",
@@ -59,5 +59,5 @@
     "retry screen can select a different hunter",
     "retry is playable"
   ],
-  "rainHits": 1110
+  "rainHits": 689
 }

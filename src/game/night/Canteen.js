@@ -46,7 +46,7 @@ export class GlassRain {
     this.time += delta;
     for (const d of this.drops) {
       d.y += d.vy * delta;
-      d.x += Math.sin(this.time * 1.7 + d.seed) * 6 * delta;
+      d.x = Math.max(0, Math.min(this.w, d.x + Math.sin(this.time * 1.7 + d.seed) * 6 * delta));
       if (d.hold > 0) { // surface tension: hold, then let go
         d.hold -= delta;
         if (d.hold <= 0) d.vy = 30 + d.r * 26;
