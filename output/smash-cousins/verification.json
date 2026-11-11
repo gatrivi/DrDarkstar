@@ -1,0 +1,25 @@
+{
+  "checks": 16,
+  "passed": [
+    "match boots P1 vs CPU with 3 stocks each",
+    "foe never mirrors P1",
+    "photo backdrop loaded",
+    "D walks P1 right",
+    "A walks P1 left",
+    "W jumps",
+    "P1 lands back on the slab",
+    "J jab damages an adjacent foe",
+    "hold-K smash charges and lands",
+    "keys still drive P1 after clicking a toolbar button",
+    "world rain toggles off and back on",
+    "leaving the blast zone costs a stock",
+    "last stock lost announces the winner",
+    "eliminated fighter stays out until Reset",
+    "Reset match restores 3 stocks each",
+    "Reset match puts fighters on opposite sides"
+  ],
+  "errors": [
+    "harness: Reset match faces fighters toward each other"
+  ],
+  "failedResources": []
+}
