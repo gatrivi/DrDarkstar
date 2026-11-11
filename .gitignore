@@ -5,3 +5,14 @@ Thumbs.db
 node_modules/
 dist/
 .vercel/
+
+# Local scratch (kept on disk, not tracked)
+.zcode/
+debug-forge.html
+output/relic-*.mjs
+output/night-hunters/band-*.png
+output/night-hunters/probe-*.png
+output/night-hunters/relic-bg-*.png
+output/night-hunters/entry-ruins.png
+output/night-hunters/exit-attempt.png
+Custom _ Edited - Super Smash Bros*.png

@@ -7,6 +7,9 @@ import { AudioField } from './audio/AudioField.js';
 const canvas = document.querySelector('#game');
 const ctx = canvas.getContext('2d');
 const input = new Input();
+// A focused button or picker would swallow game keys (and Space re-clicks it).
+addEventListener('click', (event) => event.target.closest?.('button')?.blur());
+addEventListener('change', (event) => { if (event.target.matches?.('select, input[type=file]')) event.target.blur(); });
 let width = innerWidth, height = innerHeight;
 const actor = new CapeSprite({ input, width, height, scale: 2 });
 try { await actor.load(); }

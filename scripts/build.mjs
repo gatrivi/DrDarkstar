@@ -26,6 +26,11 @@ const entries = [
   'assets/night-hunters/relic-hunter/relic-hunter-spritesheet-v1.png',
   'assets/lost-area/tileset-v1.png',
   'assets/lost-area/foliage-props-v1.png',
+  'assets/andy/andy-spritesheet-v1.png',
+  'assets/eliseo/eliseo-spritesheet-v1.png',
+  'assets/simon/simon-spritesheet-v1.png',
+  'assets/smash/city-green.jpeg',
+  'assets/smash/city-red.jpeg',
 ];
 for (const entry of entries) {
   const destination = path.join(output, entry);

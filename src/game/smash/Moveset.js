@@ -1,25 +1,21 @@
-// Super Smash Cousins — melee-inspired kit (inspiration only, arcade-tuned).
-// Melee reference points baked in: jab ~2f startup / 4% / 15f total,
-// f-tilt ~4f / 8% / 29f, f-smash ~12f / 19% charged, roll 4f startup with
-// intangibility 4-19f of 31f total, shield 60HP / 0.7x damage / 16.8HP per
-// second drain / 4.2HP per second regen. Our seconds assume 60fps; durations
-// are shortened slightly so casual couch play feels snappy.
-//
-// Move keys (both fighters share them; AndyFighter.controls dispatches):
+// Super Smash Cousins — minimal N64-tier kit (arcade-tuned).
+// Every move the original Smash 64 shipped, nothing else:
 //   jab      neutral attack button      (J / Comma / Numpad1)
 //   ftilt    tilt + sideways            (direction + J, or L / Period)
 //   utilt    tilt + up                  (W/Up + L, or up + J)
 //   dtilt    tilt + down                (S/Down + L, or down + J)
-//   fsmash   smash + sideways (charge)  (hold K / Slash, release)
+//   dashatk  attack while dash-dancing  (double-tap + J on the ground)
+//   fsmash   smash + sideways (charge)  (hold K / Slash, release or auto-fire)
 //   usmash   smash + up (charge)
 //   dsmash   smash + down (charge, hits BOTH sides)
 //   windup   charging stance (internal, releases into *smash)
+//   nair / fair / uair   attack in the air (held direction picks)
 //   roll     directional dodge (Shift + direction, invulnerable)
-//   spot     neutral dodge (Shift neutral/crouch, invulnerable, stays put)
 //   airdodge air dodge (Shift in air, invulnerable + drift)
-//   serve / retriever / super — Cousins specials kept for fun (L legacy ball
-//   is gone: L is now tilt; serve moved to... kept as data for old saves but
-//   unused. Retriever (I) and vegan power (U) stay.)
+//   retriever / super — Cousins flavor specials (I and U), not N64.
+// No spot dodge, no projectile ball: trimmed for the minimal kit.
+// Shield: 60HP bubble, drains while held, break dizzy. Charge caps at 1s and
+// auto-fires (N64 behavior) so a stuck charge is impossible.
 
 export const SHIELD = {
   max: 60,
@@ -102,12 +98,29 @@ export const MOVES = {
     active: [0.06, 0.16], reach: 60, heightRatio: 0.3,
     damage: 6, base: 165, scaling: 1.0, angle: -0.18, box: 'low',
   }),
-  // Legacy alias: old code started 'punch'; keep it pointing at the jab.
-  punch: DEF({
-    label: 'Wing Tsun chain punch',
-    pose: 'punch1', duration: 0.28, animRate: 0.09,
-    active: [0.03, 0.16], reach: 48, heightRatio: 0.35,
-    damage: 4, base: 120, scaling: 0.5, angle: -0.15,
+  dashatk: DEF({
+    label: 'Dash attack — shoulder check',
+    pose: 'dash', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.2], reach: 54, heightRatio: 0.45,
+    damage: 6, base: 200, scaling: 0.9, angle: -0.3,
+  }),
+  nair: DEF({
+    label: 'Neutral air — spin slash',
+    pose: 'swing', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.22], reach: 52, heightRatio: 0.5,
+    damage: 6, base: 150, scaling: 0.8, angle: -0.45, box: 'both',
+  }),
+  fair: DEF({
+    label: 'Forward air — sky drive',
+    pose: 'swing', duration: 0.36, animRate: 0.12,
+    active: [0.05, 0.2], reach: 60, heightRatio: 0.45,
+    damage: 8, base: 190, scaling: 1.2, angle: -0.4,
+  }),
+  uair: DEF({
+    label: 'Up air — rising arc',
+    pose: 'usmash', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.2], reach: 50, heightRatio: 0.6,
+    damage: 8, base: 190, scaling: 1.1, angle: -1.2, box: 'up',
   }),
   windup: {
     label: 'Smash charge',
@@ -115,13 +128,6 @@ export const MOVES = {
   },
   fsmash: DEF({
     label: 'Forward smash — Master Sword drive',
-    pose: 'swing', duration: 0.55, animRate: 0.2,
-    active: [0.12, 0.24], reach: 78, heightRatio: 0.6,
-    damage: 14, base: 300, scaling: 2.2, angle: -0.4, chargeable: true,
-  }),
-  // Legacy alias: old code released into 'golfswing'.
-  golfswing: DEF({
-    label: 'Golf drive',
     pose: 'swing', duration: 0.55, animRate: 0.2,
     active: [0.12, 0.24], reach: 78, heightRatio: 0.6,
     damage: 14, base: 300, scaling: 2.2, angle: -0.4, chargeable: true,
@@ -143,22 +149,12 @@ export const MOVES = {
     pose: 'roll', duration: 0.42, animRate: 0.1,
     invuln: [0.04, 0.3],
   },
-  spot: {
-    label: 'Spot dodge (invulnerable)',
-    pose: 'guard', duration: 0.28, animRate: 0.1,
-    invuln: [0.02, 0.22],
-  },
   airdodge: {
     label: 'Air dodge (invulnerable)',
     pose: 'roll', duration: 0.45, animRate: 0.1,
     invuln: [0.04, 0.32],
   },
   // Cousins specials (kept for couch chaos).
-  serve: {
-    label: 'Ping-pong serve',
-    pose: 'serve', duration: 0.4, animRate: 0.2,
-    active: [0.12, 0.14], spawn: 'pongball', damage: 0,
-  },
   retriever: {
     label: 'Retriever summon',
     pose: 'whistle', duration: 0.5, animRate: 0.2,

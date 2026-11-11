@@ -1,0 +1,23 @@
+{
+  "checks": [
+    "ok andy loads",
+    "ok world rain fps >= 30 — 56 fps",
+    "ok dummy idles at spawn — drift 0px",
+    "ok N toggles world rain off",
+    "ok walking into the dummy pushes it — moved 201px",
+    "ok eliseo loads",
+    "ok simon loads"
+  ],
+  "errors": [],
+  "failedResources": [],
+  "shots": [
+    "output/smash-cousins/andy-rain.png",
+    "output/smash-cousins/andy-classic.png",
+    "output/smash-cousins/dummy-push.png",
+    "output/smash-cousins/eliseo-rain.png",
+    "output/smash-cousins/simon-rain.png",
+    "output/smash-cousins/simon-smash-charge.png",
+    "output/smash-cousins/simon-pitbull.png"
+  ],
+  "fpsWorldRain": 56
+}

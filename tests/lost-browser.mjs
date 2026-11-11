@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
-const modulePath=process.env.PLAYWRIGHT_MODULE||'C:/Users/DevTrivi/AppData/Local/npm-cache/_npx/9833c18b2d85bc59/node_modules/playwright/index.mjs';
-const { chromium }=await import(pathToFileURL(modulePath).href);
-const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'C:/Users/DevTrivi/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe'});
+import { launchBrowser, BASE_URL } from './browser-env.mjs';
+const browser=await launchBrowser();
 const page=await browser.newPage({viewport:{width:1440,height:1100}});
 const errors=[],failures=[],checks=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=400)failures.push(`${r.status()} ${r.url()}`);});
 const check=(condition,name)=>{assert.ok(condition,name);checks.push(name);};
 await mkdir('output/lost-area',{recursive:true});
 try {
-  await page.goto(`${process.env.BASE_URL||'http://127.0.0.1:8080'}/games.html`);
+  await page.goto(`${BASE_URL}/games.html`);
   await page.getByRole('link',{name:/004.*LOST EXPEDITION/}).click();
   await page.waitForFunction(()=>document.querySelector('#loading').hidden);
   await page.evaluate(async()=>{window.expedition=await import('/src/lost.js');window.scrollTo(0,0);});
@@ -39,7 +37,7 @@ try {
   await page.evaluate(()=>{Object.assign(window.expedition.world.player,{x:549,y:384,crouch:false,vy:0,grounded:true});});
   await page.waitForTimeout(800);await page.keyboard.press('e');await page.waitForTimeout(80);
   check(await page.evaluate(()=>window.expedition.world.memories.has('canopy')),'E discovers canopy memory');
-  check(await page.locator('#memories').textContent()==='MEMORIES 1 / 3','memory discovery reaches HUD');
+  check(await page.locator('#memories').textContent()==='MEMORIES 1 / 5','memory discovery reaches HUD');
   await page.screenshot({path:'output/lost-area/canopy-memory.png',fullPage:true});
   await page.evaluate(()=>{Object.assign(window.expedition.world.player,{x:1940,y:448,crouch:false,vy:0,grounded:true});});
   await page.waitForTimeout(900);

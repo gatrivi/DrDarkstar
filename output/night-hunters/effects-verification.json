@@ -1,11 +1,11 @@
 {
   "metrics": {
     "world": {
-      "fps": 28,
-      "medianFrameMs": 33.4
+      "fps": 60,
+      "medianFrameMs": 16.7
     },
     "classic": {
-      "fps": 59,
+      "fps": 60,
       "medianFrameMs": 16.7
     }
   },

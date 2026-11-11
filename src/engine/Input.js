@@ -4,7 +4,10 @@ export class Input {
     this.pressed = new Set();
 
     target.addEventListener('keydown', (event) => {
-      if (event.target?.closest?.('input, select, textarea, button')) return;
+      // Form controls keep their keys, unless the page opts a toolbar into
+      // passing game keys through (data-game-keys).
+      if (event.target?.closest?.('input, select, textarea, button')
+        && !event.target.closest('[data-game-keys]')) return;
       if (!this.down.has(event.code)) this.pressed.add(event.code);
       this.down.add(event.code);
       if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(event.code)) {

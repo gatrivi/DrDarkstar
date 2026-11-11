@@ -2,7 +2,7 @@
   constructor({ width, height, actor, count = 6000, focused = false, settings = {} }) {
     Object.assign(this, {
       width, height, actor, focused, hits: 0, time: 0,
-      settings: { size: 1, smoothing: 7, reveal: 1, drift: 1, ...settings },
+      settings: { size: 1, smoothing: 7, reveal: 1, drift: 1, pulse: 1, bassScale: 1, ...settings },
     });
     this.lastX = actor.x; this.lastY = actor.y;
     this.audio = { bass: 0, mid: 0, treble: 0, effect: 0 };
@@ -62,9 +62,9 @@
       const drift = Math.sin(this.time * 2 + drop.phase + drop.y * 0.015) * this.settings.drift;
       const dx = drop.x - this.actor.x, dy = drop.y - this.actor.y;
       const distance = Math.hypot(dx, dy) || 1;
-      const impulse = effect * 220 * Math.max(0, 1 - distance / 350);
+      const impulse = effect * 220 * this.settings.pulse * Math.max(0, 1 - distance / 350);
       drop.vx = drift * (4 + mid * (this.focused ? 25 : 100)) + dx / distance * impulse;
-      drop.vy = Math.max(12, drop.speed * grip * (1 + bass * (this.focused ? 0.6 : 1.8)) + dy / distance * impulse);
+      drop.vy = Math.max(12, drop.speed * grip * (1 + bass * (this.focused ? 0.6 : 1.8) * this.settings.bassScale) + dy / distance * impulse);
       drop.x += drop.vx * delta;
       drop.y += drop.vy * delta;
       if (drop.y > bounds.y + bounds.height || drop.x < bounds.x || drop.x > bounds.x + bounds.width) {

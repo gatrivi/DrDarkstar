@@ -1,4 +1,4 @@
-import { LostWorld, TILE, WIDTH, HEIGHT, WOODLAND_PLATFORMS, MEMORIES } from './game/lost/World.js';
+import { LostWorld, TILE, WIDTH, HEIGHT, WOODLAND_PLATFORMS, MEMORIES, LADDERS } from './game/lost/World.js';
 import { prepareFoliage, SCENERY, GROUND_COVER } from './game/lost/Foliage.js';
 import { loadImage } from './game/night/Atlas.js';
 
@@ -105,7 +105,12 @@ function drawScene() {
     tile(6,x,y,32,64);ctx.fillStyle='#8affe0';ctx.fillRect(x+14,y+8,4,15);
   }
   const first=Math.max(0,Math.floor(cameraX/TILE)),end=Math.min(110,Math.ceil((cameraX+960)/TILE));
-  for(let r=0;r<20;r++) for(let c=first;c<end;c++) if(world.tiles[r][c]>=0) tile(world.tiles[r][c],c*TILE,r*TILE);
+  for(let r=0;r<20;r++) for(let c=first;c<end;c++) {
+    const id=world.tiles[r][c];if(id<0)continue;
+    // Passable neon pipes (tile 13 off a pillar) sit back as faded decoration.
+    const deco=id===13&&!LADDERS.some(([lc])=>lc===c);
+    if(deco)ctx.globalAlpha=.35;tile(id,c*TILE,r*TILE);if(deco)ctx.globalAlpha=1;
+  }
   for(let c=59;c<62;c++) { tile(15,c*TILE,560,32,80); }
   for(const platform of WOODLAND_PLATFORMS)prop(platform.art,...platform.bounds);
   for(const memory of MEMORIES) {
@@ -124,6 +129,7 @@ function drawScene() {
   tile(world.powered===3?9:8,104*TILE,12*TILE,96,128);
   label(world.powered===3?'E · ENTER':'THE ARCHIVE',104*TILE,12*TILE-12);
   label('S / ↓ · CROUCH',23*TILE,11*TILE-13);
+  for(const [c] of LADDERS) label('↑ HOLD · CLIMB',c*TILE-22,15*TILE+26);
   label('↑ FOLLOW THE CONDUITS',37*TILE,420);
   label('↑ THE LAST RELAY',73*TILE,420);
   const p=world.player;
@@ -180,7 +186,7 @@ function frame(now) {
   if(ready) {
     if(!paused) {
       accumulator+=dt;
-      while(accumulator>=1/60){world.update(1/60,{left:held.has('left'),right:held.has('right'),down:held.has('down'),jump:pressed.has('jump'),whip:pressed.has('whip'),interact:pressed.has('interact')});pressed.clear();accumulator-=1/60;}
+      while(accumulator>=1/60){world.update(1/60,{left:held.has('left'),right:held.has('right'),up:held.has('jump'),down:held.has('down'),jump:pressed.has('jump'),whip:pressed.has('whip'),interact:pressed.has('interact')});pressed.clear();accumulator-=1/60;}
       cameraX+=(Math.max(0,Math.min(WIDTH-960,world.player.x-350))-cameraX)*Math.min(1,dt*6);
       cameraY+=(Math.max(0,Math.min(HEIGHT-540,world.player.y-400))-cameraY)*Math.min(1,dt*4);
     }

@@ -18,6 +18,17 @@ export const P2_BINDINGS = {
   smash: ['Slash', 'Numpad3'], roll: ['ShiftRight', 'Numpad0', 'Quote'],
   up: ['ArrowUp'], down: ['ArrowDown'],
 };
+  // Night Hunters keyboard: J attack (tap = light punch, hold = heavy windup,
+// release swings), H fire, K jump, L shield, A/D move, S crouch, Shift roll.
+// Smash Cousins keeps P1_BINDINGS untouched.
+export const NIGHT_BINDINGS = {
+  left: ['KeyA'], right: ['KeyD'], jump: ['KeyK', 'Space'],
+  shield: ['KeyL'], jab: ['KeyJ'], tilt: ['KeyH'],
+  smash: [], roll: ['ShiftLeft'], up: ['KeyW'], down: ['KeyS'],
+};
+// A J press shorter than this reads as the light attack; a longer hold is the
+// charged heavy that swings on release.
+export const NIGHT_LIGHT_WINDOW = 0.16;
 
 // Frame order shared by the procedural fallback sheet and the generated art
 // strip (AndySheet composes the art in this exact order).
@@ -25,6 +36,8 @@ const POSES = ENGINE_POSES;
 export const ANDY_POSES = POSES;
 const FRAME_INDEX = Object.fromEntries(POSES.map((name, i) => [name, i]));
 const PW = 24, PH = 32;
+// Grounded jump wind-up (~3 frames at 60fps): the up-attack input window.
+export const JUMP_SQUAT = 0.05;
 
 const PALETTES = {
   andy: {
@@ -39,7 +52,14 @@ const PALETTES = {
     jacket: '#241d24', jacketHi: '#3f3440', cloud: '#7d4bab', cloudEdge: '#e8e2d8',
     pants: '#3a2a3a', shoe: '#5a3a4a', eye: '#1c1c1c',
   },
+  simon: {
+    skin: '#e0a878', skinShade: '#c48d5e', hair: '#2a1c12',
+    cap: '#d97a2e', capDark: '#b05e1e',
+    jacket: '#e6e0d4', jacketHi: '#f4efe4', cloud: '#c9622e', cloudEdge: '#f2d8b8',
+    pants: '#3f5a78', shoe: '#4a3b2a', eye: '#1c1c1c',
+  },
 };
+export { PALETTES };
 const SWORD = { blade: '#d9e4ea', edge: '#f4faff', hilt: '#c9a227' };
 const HYLIAN = { body: '#2b5fd9', rim: '#c9a227', emblem: '#9aa7b0' };
 
@@ -233,6 +253,7 @@ function buildSpriteSheet(palette) {
   });
   return { sheet, pw: PW, ph: PH, frames: POSES.length };
 }
+export { buildSpriteSheet };
 
 // Sample skin/hair tones from the reference photo so the sprite reads as Andy.
 async function sampleTones() {
@@ -281,6 +302,7 @@ export class AndyFighter extends AnimatedSprite {
     this.vx = 0; this.vy = 0;
     this.onGround = false;
     this.jumpsLeft = 2;
+    this.jumpSquat = 0; // grounded jump wind-up; an attack inside it becomes an up-attack
     this.facing = 1;
     this.hitstun = 0;
     this.action = null;      // { name, time, duration, hitDone, ... }
@@ -365,7 +387,8 @@ export class AndyFighter extends AnimatedSprite {
     const w = move.reach, h = this.renderHeight * (move.heightRatio ?? 0.5);
     const kind = move.box || 'forward';
     if (kind === 'up') {
-      const bw = this.renderWidth * 0.7;
+      // Wide enough to catch a foe standing right beside you, not just overhead.
+      const bw = this.renderWidth * 1.3;
       return [{
         x: this.x - bw / 2, y: this.y - this.renderHeight * 0.5 - h * 0.45,
         w: bw, h: h * 1.1,
@@ -407,10 +430,33 @@ export class AndyFighter extends AnimatedSprite {
     return 'fsmash';
   }
 
+  // Release a held smash charge into its stored kind. Single funnel so the
+  // keyup path, the Night Hunters heavy path, and the N64 full-charge
+  // auto-fire all behave identically.
+  fireSmash(stage) {
+    if (this.action?.name !== 'windup') return;
+    const charge = this.action.charge;
+    const stored = this.action.smashKind || 'fsmash';
+    this.action = null;
+    this.heavyOn = false;
+    // Smash attacks are grounded moves: releasing mid-air cancels.
+    if (!this.onGround) {
+      this.setFrame(this.frameIndex.idle ?? 0);
+      return;
+    }
+    const kind = this.moveTable[stored] ? stored
+      : this.moveTable.fsmash ? 'fsmash'
+      : this.moveTable.golfswing ? 'golfswing' : null;
+    if (kind) {
+      this.startMove(kind, { charge });
+      stage.sfx?.play('smashRelease');
+    }
+  }
+
   // Legacy tables (Night Hunters) only know roll + punch/golfswing: fall back
   // to those so the older game keeps its exact feel.
   get modernKit() {
-    return !!(this.moveTable?.spot && this.moveTable?.ftilt && this.moveTable?.fsmash);
+    return !!(this.moveTable?.ftilt && this.moveTable?.fsmash && this.moveTable?.nair);
   }
 
   tryDodge(input, B, stage) {
@@ -539,35 +585,62 @@ export class AndyFighter extends AnimatedSprite {
     for (const code of B.jump) {
       if (input.consume(code) && !this.action && this.dropLag <= 0) { jumped = true; break; }
     }
+    // Melee jump-squat: W is both jump and "up", so a grounded jump waits a
+    // few frames; an attack pressed inside that window cancels it into
+    // up-tilt / up-smash instead of leaving the ground.
+    const attackNow = jabPeek || tiltPeek || B.smash.some((c) => input.pressed?.has(c));
+    if (this.jumpSquat > 0) {
+      if (attackNow || !this.onGround || this.action) this.jumpSquat = 0;
+      else if ((this.jumpSquat -= delta) <= 0) { this.jumpSquat = 0; this.doJump(stage); }
+    }
     if (jumped) {
-      if (this.onGround || this.jumpsLeft > 0) {
-        const grounded = this.onGround;
-        stage.sfx?.play(grounded ? 'jump' : 'doubleJump');
-        this.vy = grounded ? -760 : -680;
-        this.jumpsLeft = this.onGround ? 1 : this.jumpsLeft - 1;
-        this.onGround = false;
-      }
+      if (this.onGround && this.modernKit) {
+        if (!attackNow && this.jumpSquat <= 0) this.jumpSquat = JUMP_SQUAT;
+      } else if (this.onGround || this.jumpsLeft > 0) this.doJump(stage);
     }
 
     // Fast-fall in air.
     if (input.isDown(...B.shield) && !this.onGround && this.vy > 0) this.vy += 1400 * delta;
 
     // Jab (neutral) vs tilt (with a direction held) — melee stick logic.
+    // Night Hunters: H is the dedicated fire key and a held J reads as the
+    // heavy windup (release swings); the jab-peek stays attack-only.
+    const heavyHeld = !!this.heavyOn;
+    const nightKit = (this.bindings || P1_BINDINGS) === NIGHT_BINDINGS;
+    const heavyPress = nightKit && !heavyHeld && B.jab.some((c) => input.pressed?.has(c) && !this.shielding);
     let jabPressed = false;
-    for (const code of B.jab) if (input.consume(code)) { jabPressed = true; break; }
-    if (jabPressed && !this.action && this.dropLag <= 0) {
-      const held = input.isDown(...B.left, ...B.right, ...B.up, ...B.down);
-      if (held && this.moveTable.ftilt) {
-        const variant = this.tiltVariant(input, B);
-        if (input.isDown(...B.left, ...B.right)) {
-          const s = Number(input.isDown(...B.right)) - Number(input.isDown(...B.left));
-          if (s) this.facing = s;
-        }
-        this.startMove(variant);
-        stage.sfx?.play('tilt');
-      } else {
-        this.startMove(this.moveTable.jab ? 'jab' : 'punch');
+    for (const code of B.jab) if (!heavyHeld && input.consume(code)) { jabPressed = true; break; }
+    if (heavyPress && !this.action && this.dropLag <= 0 && this.moveTable.golfswing) {
+      this.heavyOn = true;
+      this.startMove('windup', { smashKind: 'golfswing' });
+      stage.sfx?.play('smashCharge');
+    } else if (jabPressed && !this.action && this.dropLag <= 0) {
+      // Airborne: N64 aerials — held direction picks neutral/forward/up air.
+      if (!this.onGround && this.moveTable.nair) {
+        const side = Number(input.isDown(...B.right)) - Number(input.isDown(...B.left));
+        const name = input.isDown(...B.up) && this.moveTable.uair ? 'uair'
+          : side && this.moveTable.fair ? 'fair' : 'nair';
+        if (side) this.facing = side;
+        this.startMove(name);
         stage.sfx?.play('attack');
+      // Grounded mid-dash: dash attack (shoulder check with dash momentum).
+      } else if (this.onGround && this.dashTimer > 0 && this.moveTable.dashatk) {
+        this.startMove('dashatk');
+        stage.sfx?.play('attack');
+      } else {
+        const held = input.isDown(...B.left, ...B.right, ...B.up, ...B.down);
+        if (held && this.moveTable.ftilt && this.onGround) {
+          const variant = this.tiltVariant(input, B);
+          if (input.isDown(...B.left, ...B.right)) {
+            const s = Number(input.isDown(...B.right)) - Number(input.isDown(...B.left));
+            if (s) this.facing = s;
+          }
+          this.startMove(variant);
+          stage.sfx?.play('tilt');
+        } else {
+          this.startMove(this.moveTable.jab ? 'jab' : 'punch');
+          stage.sfx?.play('attack');
+        }
       }
     }
 
@@ -592,8 +665,13 @@ export class AndyFighter extends AnimatedSprite {
     }
 
     // Smash: hold to charge (windup), release to fire. Direction picks variant.
-    const smashHeld = input.isDown(...B.smash);
-    if (smashHeld && !this.action && this.onGround && this.dropLag <= 0) {
+    // Night Hunters have no smash key: their J-heavy windup (heavyOn) charges
+    // here instead and releases through releaseHeavy.
+    const smashHeld = B.smash.length > 0 && input.isDown(...B.smash);
+    const heavyCharge = this.heavyOn && B.jab.some((c) => input.isDown(c));
+    // After a full-charge auto-fire, the next smash needs a fresh press.
+    if (!smashHeld) this.smashLatch = false;
+    if (smashHeld && !this.smashLatch && !this.action && this.onGround && this.dropLag <= 0) {
       this.startMove('windup');
       this.action.smashKind = this.smashVariant(input, B);
       const pose = this.moveTable[this.action.smashKind]?.pose;
@@ -601,30 +679,26 @@ export class AndyFighter extends AnimatedSprite {
       stage.sfx?.play('smashCharge');
     }
     if (this.action?.name === 'windup') {
-      if (smashHeld) {
+      if (smashHeld || heavyCharge) {
         this.action.charge = Math.min(MAX_CHARGE, this.action.charge + delta);
-        const kind = this.smashVariant(input, B);
-        this.action.smashKind = kind;
-        const mv = this.moveTable[kind];
-        if (mv && this.frameIndex[mv.pose] != null) this.setFrame(this.frameIndex[mv.pose]);
-        if (input.isDown(...B.left, ...B.right)) {
-          const s = Number(input.isDown(...B.right)) - Number(input.isDown(...B.left));
-          if (s) this.facing = s;
+        if (smashHeld) {
+          const kind = this.smashVariant(input, B);
+          this.action.smashKind = kind;
+          const mv = this.moveTable[kind];
+          if (mv && this.frameIndex[mv.pose] != null) this.setFrame(this.frameIndex[mv.pose]);
+          if (input.isDown(...B.left, ...B.right)) {
+            const s = Number(input.isDown(...B.right)) - Number(input.isDown(...B.left));
+            if (s) this.facing = s;
+          }
         }
-      } else {
-        let kind = this.action.smashKind || 'fsmash';
-        if (!this.moveTable[kind] && this.moveTable.golfswing) kind = 'golfswing';
-        const charge = this.action.charge;
-        this.action = null;
-        // Smash attacks are grounded moves: releasing mid-air cancels.
-        if (!this.onGround) {
-          this.setFrame(this.frameIndex.idle ?? 0);
-        } else if (this.moveTable[kind]) {
-          this.startMove(kind, { charge });
-          stage.sfx?.play('smashRelease');
-        }
+      } else if (B.smash.length > 0) {
+        this.fireSmash(stage);
       }
     }
+
+    // Night Hunters heavy: J released mid-windup swings the stored heavy.
+    if (this.heavyOn) this.releaseHeavy(input, stage);
+
 
     // Cousins specials stay on the dummy-friendly legacy keys for P1 only.
     const isP1 = B === P1_BINDINGS || this.bindings === P1_BINDINGS;
@@ -641,6 +715,32 @@ export class AndyFighter extends AnimatedSprite {
         stage.onSuper?.(this);
       }
     }
+  }
+
+  doJump(stage) {
+    const grounded = this.onGround;
+    stage.sfx?.play(grounded ? 'jump' : 'doubleJump');
+    this.vy = grounded ? -760 : -680;
+    this.jumpsLeft = grounded ? 1 : this.jumpsLeft - 1;
+    this.onGround = false;
+  }
+
+  // Night Hunters heavy kit: J press starts windup, J release swings the
+  // stored heavy move. Fighters with no heavy move never enter heavyOn.
+  releaseHeavy(input, stage) {
+    const B = this.bindings || P1_BINDINGS;
+    if (B.jab.some((c) => input.isDown(c))) return; // still held: keep charging
+    if (this.action?.name !== 'windup') { this.heavyOn = false; return; }
+    // A quick J tap is the light attack (never charged); a longer hold
+    // swings the heavy with the accumulated charge.
+    if (this.action.charge < NIGHT_LIGHT_WINDOW && this.moveTable.punch) {
+      this.action = null;
+      this.heavyOn = false;
+      this.startMove('punch');
+      stage.sfx?.play('attack');
+      return;
+    }
+    this.fireSmash(stage);
   }
 
   physics(delta, stage) {
@@ -663,7 +763,10 @@ export class AndyFighter extends AnimatedSprite {
     const fallSpeed = this.vy;
     this.onGround = false;
     const footY = this.y + this.renderHeight / 2;
-    if (footY >= ground.y && this.vy >= 0 && this.x >= ground.x0 && this.x <= ground.x1) {
+    // Only land when the feet crossed the surface this frame: a fighter below
+    // the slab drifting back under it must keep falling, not teleport on top.
+    const prevFootY = footY - this.vy * delta;
+    if (footY >= ground.y && prevFootY <= ground.y + 2 && this.vy >= 0 && this.x >= ground.x0 && this.x <= ground.x1) {
       this.y = ground.y - this.renderHeight / 2;
       this.vy = 0; this.onGround = true; this.jumpsLeft = 2;
       if (fallSpeed > 500) stage.sfx?.play('land');
@@ -769,6 +872,7 @@ export class AndyFighter extends AnimatedSprite {
     this.shieldstun = 0;
     this.shieldBreakStun = 0;
     this.dropLag = 0;
+    this.jumpSquat = 0;
     this.invuln = 1.2; // spawn protection: drops in blinking, can't be spawn-camped
     this.respawnTimer = 1;
   }
@@ -776,7 +880,23 @@ export class AndyFighter extends AnimatedSprite {
   update(delta, stage) {
     if (this.respawnTimer > 0) { this.respawnTimer -= delta; }
     else if (this.hitstun <= 0 && this.shieldstun <= 0 && this.shieldBreakStun <= 0) this.controls(delta, stage);
-    else this.shielding = false;
+    else {
+      this.shielding = false;
+      this.jumpSquat = 0;
+      // Control-locked while a windup is pending: the charge can't be held or
+      // released, so drop it rather than freeze mid-stance (stuck-smash fix).
+      if (this.action?.name === 'windup') {
+        this.action = null;
+        this.heavyOn = false;
+        this.setFrame(this.frameIndex.idle ?? 0);
+      }
+    }
+    // N64 full-charge auto-fire: a held smash releases itself at max charge,
+    // so the stance can never wedge no matter what the input path does.
+    if (this.action?.name === 'windup' && this.action.charge >= MAX_CHARGE) {
+      this.fireSmash(stage);
+      this.smashLatch = true; // cleared once the smash key is let go
+    }
     this.physics(delta, stage);
     this.advance(delta);
   }

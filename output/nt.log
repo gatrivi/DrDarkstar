@@ -1,0 +1,130 @@
+TAP version 13
+# Subtest: damage launches enemies and charged hits increase damage and knockback
+ok 1 - damage launches enemies and charged hits increase damage and knockback
+  ---
+  duration_ms: 1.7544
+  ...
+# Subtest: rolls, spawn protection and friendly teams reject hits
+ok 2 - rolls, spawn protection and friendly teams reject hits
+  ---
+  duration_ms: 0.5108
+  ...
+# Subtest: projectile direction is preserved even when the shooter turns around
+ok 3 - projectile direction is preserved even when the shooter turns around
+  ---
+  duration_ms: 0.1859
+  ...
+# Subtest: projectile sweep detects a target crossed between frames in both directions
+ok 4 - projectile sweep detects a target crossed between frames in both directions
+  ---
+  duration_ms: 0.2668
+  ...
+# Subtest: sweep covers vertical travel so angled shots connect
+ok 5 - sweep covers vertical travel so angled shots connect
+  ---
+  duration_ms: 0.2574
+  ...
+# Subtest: aimShot points at the target within the deflection cap
+ok 6 - aimShot points at the target within the deflection cap
+  ---
+  duration_ms: 0.2521
+  ...
+# Subtest: charge releases into an attack and prevents unrelated move cancellation
+ok 7 - charge releases into an attack and prevents unrelated move cancellation
+  ---
+  duration_ms: 0.5614
+  ...
+# Subtest: front guard absorbs attacks, spends guard and keeps the defensive pose
+ok 8 - front guard absorbs attacks, spends guard and keeps the defensive pose
+  ---
+  duration_ms: 0.3487
+  ...
+# Subtest: blocking leaves the rear vulnerable and cannot absorb friendly fire
+ok 9 - blocking leaves the rear vulnerable and cannot absorb friendly fire
+  ---
+  duration_ms: 0.9179
+  ...
+# Subtest: guard breaks when depleted and cannot block again during recovery
+ok 10 - guard breaks when depleted and cannot block again during recovery
+  ---
+  duration_ms: 0.9662
+  ...
+# Subtest: hits score damage times ten, KOs pay by species plus charged bonus
+ok 11 - hits score damage times ten, KOs pay by species plus charged bonus
+  ---
+  duration_ms: 0.6895
+  ...
+# Subtest: combo multiplier climbs every two hits and caps at five
+ok 12 - combo multiplier climbs every two hits and caps at five
+  ---
+  duration_ms: 1.4179
+  ...
+# Subtest: bounty table has three valid specialties with honest payouts
+ok 13 - bounty table has three valid specialties with honest payouts
+  ---
+  duration_ms: 0.2625
+  ...
+# Subtest: best board ranks and keeps the top five shared runs
+ok 14 - best board ranks and keeps the top five shared runs
+  ---
+  duration_ms: 0.2032
+  ...
+# Subtest: challenge links round-trip and reject garbage
+ok 15 - challenge links round-trip and reject garbage
+  ---
+  duration_ms: 0.5081
+  ...
+# Subtest: crouching shrinks the hurtbox so level bolts sail overhead
+ok 16 - crouching shrinks the hurtbox so level bolts sail overhead
+  ---
+  duration_ms: 0.1905
+  ...
+# Subtest: rooftop layout is one-way, inside the arena, and climbs by steps
+ok 17 - rooftop layout is one-way, inside the arena, and climbs by steps
+  ---
+  duration_ms: 0.2085
+  ...
+# Subtest: uptown sanctuary sits left of the sector gate with the noodle bar inside it
+ok 18 - uptown sanctuary sits left of the sector gate with the noodle bar inside it
+  ---
+  duration_ms: 0.1803
+  ...
+# Subtest: walking past the sector gate is the only way to start the hunt
+ok 19 - walking past the sector gate is the only way to start the hunt
+  ---
+  duration_ms: 0.7977
+  ...
+# Subtest: esper film strip keeps the newest six exposures and cycles the log lines
+ok 20 - esper film strip keeps the newest six exposures and cycles the log lines
+  ---
+  duration_ms: 1.0278
+  ...
+# Subtest: the canteen door only opens from the noodle bar while strolling
+ok 21 - the canteen door only opens from the noodle bar while strolling
+  ---
+  duration_ms: 0.4403
+  ...
+# Subtest: glass rain droplets slide down the pane and never leave it
+ok 22 - glass rain droplets slide down the pane and never leave it
+  ---
+  duration_ms: 11.7964
+  ...
+# Subtest: the relic hunter is a full cast member with an e-rad whip
+ok 23 - the relic hunter is a full cast member with an e-rad whip
+  ---
+  duration_ms: 1.3369
+  ...
+# Subtest: the west breach damps the storm and opens onto the archive
+ok 24 - the west breach damps the storm and opens onto the archive
+  ---
+  duration_ms: 0.9451
+  ...
+1..24
+# tests 24
+# suites 0
+# pass 24
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 208.2635

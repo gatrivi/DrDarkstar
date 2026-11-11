@@ -41,10 +41,10 @@ export class SceneField {
 }
 
 export class WorldRain {
-  constructor(width,height,count=12000) {
+  constructor(width,height,count=12000,settings={}) {
     this.width=width;this.height=height;
     this.field=new SceneField(width,height);
-    this.rain=new CollisionRain({width,height,actor:this.field,count,settings:{size:1.5,reveal:3.4,smoothing:12,drift:.8}});
+    this.rain=new CollisionRain({width,height,actor:this.field,count,settings:{size:1.5,reveal:3.4,smoothing:12,drift:.8,...settings}});
     this.layer=document.createElement('canvas');this.layer.width=width/2;this.layer.height=height/2;
     this.ctx=this.layer.getContext('2d');
     this.image=this.ctx.createImageData(this.layer.width,this.layer.height);

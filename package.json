@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "node server.mjs",
     "build": "node scripts/build.mjs",
-    "test": "node --test tests/rain.test.mjs tests/smash.test.mjs tests/night.test.mjs tests/lost.test.mjs"
+    "test": "node --test tests/rain.test.mjs tests/smash.test.mjs tests/night.test.mjs tests/lost.test.mjs",
+    "test:browser": "node scripts/browser-tests.mjs",
+    "test:all": "npm test && npm run test:browser"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.65.0"
   }
 }

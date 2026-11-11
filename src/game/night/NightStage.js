@@ -9,7 +9,7 @@ import { WORLD, NIGHT_MOVES, overlaps, hitTarget, blockHit, projectileSweep, vul
   SCORE, scoreForHit, scoreForKO, comboMult, bountyIdValid, bountyPayout, boardRank, boardInsert } from './Combat.js';
 import { ZEN, inNoodleBar, pastGate, photoLog, filmStrip, mellowLevel, atBreach } from './ZenZone.js';
 import { CANTEEN, CANTEEN_LOGS, GlassRain } from './Canteen.js';
-import { RelicVista, RELIC_RELAY_X, RELIC_MURAL_X, RELIC_MEMORY_X, RUINS_EXIT_X } from './RelicVista.js';
+import { RelicVista, RELIC_RELAY_X, RELIC_MURAL_X, RELIC_MEMORY_X, RUINS_EXIT_X, RUINS_RETURN_X } from './RelicVista.js';
 
 export class NightStage {
   constructor({ input, sound }) {
@@ -188,11 +188,13 @@ export class NightStage {
       this.announce('THE WEST BREACH', 'THE RAIN THINS. OLD STONE LISTENS.', '#7fffe0');
     } else if (this.ruins && this.player.x > RUINS_EXIT_X) {
       this.ruins = false;
+      this.player.x = RUINS_RETURN_X;
       if (this.kind !== this.streetKind) { this.kind = this.streetKind; this.player.setKind(this.streetKind); }
       this.announce('BACK IN UPTOWN', 'THE STORM TAKES YOU BACK', '#8ee8f2');
     }
     if (this.ruins) this.updateRuins(delta);
-    if (pastGate(this.player.x)) this.startHunt();
+    // The archive shares x with uptown; only the real street reaches the gate.
+    if (!this.ruins && pastGate(this.player.x)) this.startHunt();
   }
   // Root Archive interactions: the e-rad wakes the relay; E reads stone.
   updateRuins(delta) {

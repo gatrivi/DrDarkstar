@@ -10,7 +10,10 @@ const FOLIAGE = {
   vines: [654,735,883,1047],
 };
 export const RELIC_RELAY_X = 210, RELIC_MURAL_X = 430, RELIC_MEMORY_X = 545;
-export const RUINS_EXIT_X = 210; // hysteresis: walk back east past this to return
+// The archive is walked west→east: relay, mural, memory, then the east edge
+// hands you back to the street just outside the breach.
+export const RUINS_EXIT_X = 880;
+export const RUINS_RETURN_X = 140; // street x after leaving (east of the breach line)
 
 export class RelicVista {
   constructor() {

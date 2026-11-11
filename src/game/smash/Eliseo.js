@@ -1,10 +1,33 @@
 import { AndyFighter } from './AndyFighter.js';
+import { loadCousinSheet } from './SheetLoader.js';
 
 // Eliseo: the curl-headed cousin. Huge curly hair, dark jacket with spectral
 // green trim (Viego), a tiny snake familiar on his shoulder, and a green
-// spectral blade for the smash. Hand-drawn 24 x 32 pixel frames.
-export const ELISEO_POSES = ['idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard', 'aa', 'ftilt', 'utilt', 'dtilt', 'smash', 'usmash', 'dsmash', 'tilt'];
+// spectral blade for the smash. Hand-drawn 24 x 32 pixel frames stay as the
+// offline fallback; the generated art sheet loads first when available.
+export const ELISEO_POSES = ['idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard', 'aa', 'ftilt', 'utilt', 'dtilt', 'smash', 'usmash', 'dsmash', 'tilt', 'charge'];
 export const ELISEO_FRAME_INDEX = Object.fromEntries(ELISEO_POSES.map((name, i) => [name, i]));
+
+// Generated sheet (assets/eliseo): 4x4 grid, README slot order.
+const ELISEO_SHEET_URL = './assets/eliseo/eliseo-spritesheet-v1.png';
+const ELISEO_SHEET_CELLS = [
+  'idle', 'walk1', 'walk2', 'dash',
+  'jump', 'roll', 'aa', 'tilt',
+  'charge', 'smash', 'smash2', 'summon',
+  'possession', 'block', 'hurt', 'victory',
+];
+// Engine strip order: the full kit. Poses the art lacks reuse the closest
+// cell — tilts read through the tilt poke, smashes through impact/follow-through.
+const ELISEO_ENGINE_POSES = [
+  'idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard',
+  'aa', 'ftilt', 'utilt', 'dtilt', 'charge', 'smash', 'usmash', 'dsmash', 'tilt',
+];
+export const ELISEO_ENGINE_FRAME_INDEX = Object.fromEntries(ELISEO_ENGINE_POSES.map((name, i) => [name, i]));
+const ELISEO_POSE_CELL = {
+  idle: 0, walk1: 1, walk2: 2, dash: 3, jump: 4, roll: 5, guard: 13,
+  aa: 6, ftilt: 7, utilt: 8, dtilt: 7, charge: 8, smash: 9,
+  usmash: 10, dsmash: 10, tilt: 7,
+};
 
 const P = {
   skin: '#c98d5f', skinShade: '#a87148', hair: '#241a12', hairHi: '#3a2a1c',
@@ -181,12 +204,6 @@ export const ELISEO_MOVES = {
     active: [0.03, 0.16], reach: 48, heightRatio: 0.3,
     damage: 4, base: 130, scaling: 0.55, angle: -0.15,
   },
-  punch: {
-    label: 'Spectral jab',
-    pose: 'aa', duration: 0.28, animRate: 0.09,
-    active: [0.03, 0.16], reach: 48, heightRatio: 0.3,
-    damage: 4, base: 130, scaling: 0.55, angle: -0.15,
-  },
   ftilt: {
     label: 'Mist fang (forward tilt)',
     pose: 'ftilt', duration: 0.38, animRate: 0.12,
@@ -205,17 +222,35 @@ export const ELISEO_MOVES = {
     active: [0.06, 0.16], reach: 60, heightRatio: 0.3,
     damage: 6, base: 170, scaling: 1.0, angle: -0.18, box: 'low',
   },
+  dashatk: {
+    label: 'Mist dash (dash attack)',
+    pose: 'dash', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.2], reach: 54, heightRatio: 0.45,
+    damage: 6, base: 205, scaling: 0.9, angle: -0.3,
+  },
+  nair: {
+    label: 'Spectral spin (neutral air)',
+    pose: 'aa', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.22], reach: 52, heightRatio: 0.5,
+    damage: 6, base: 155, scaling: 0.8, angle: -0.45, box: 'both',
+  },
+  fair: {
+    label: 'Wraith slash (forward air)',
+    pose: 'aa', duration: 0.36, animRate: 0.12,
+    active: [0.05, 0.2], reach: 60, heightRatio: 0.45,
+    damage: 8, base: 195, scaling: 1.2, angle: -0.4,
+  },
+  uair: {
+    label: 'Crown pierce (up air)',
+    pose: 'usmash', duration: 0.34, animRate: 0.12,
+    active: [0.04, 0.2], reach: 50, heightRatio: 0.6,
+    damage: 8, base: 195, scaling: 1.1, angle: -1.2, box: 'up',
+  },
   windup: {
     label: 'Ruined charge',
-    pose: 'smash', duration: Infinity, animRate: 0.3,
+    pose: 'charge', duration: Infinity, animRate: 0.3,
   },
   fsmash: {
-    label: 'Ruined King smash',
-    pose: 'smash', duration: 0.55, animRate: 0.2,
-    active: [0.12, 0.24], reach: 78, heightRatio: 0.65,
-    damage: 14, base: 310, scaling: 2.2, angle: -0.4, chargeable: true,
-  },
-  golfswing: {
     label: 'Ruined King smash',
     pose: 'smash', duration: 0.55, animRate: 0.2,
     active: [0.12, 0.24], reach: 78, heightRatio: 0.65,
@@ -233,12 +268,6 @@ export const ELISEO_MOVES = {
     active: [0.08, 0.22], reach: 66, heightRatio: 0.35,
     damage: 11, base: 280, scaling: 1.9, angle: -0.35, box: 'both', chargeable: true,
   },
-  serve: {                       // kept for legacy saves; L is tilt now
-    label: 'Tilt poke',
-    pose: 'tilt', duration: 0.35, animRate: 0.2,
-    active: [0.04, 0.16], reach: 52, heightRatio: 0.4,
-    damage: 5, base: 170, scaling: 1.0, angle: -0.25,
-  },
   retriever: {                   // I — snake summon
     label: 'Snake summon',
     pose: 'tilt', duration: 0.5, animRate: 0.2,
@@ -252,11 +281,6 @@ export const ELISEO_MOVES = {
     label: 'Roll (invulnerable)',
     pose: 'roll', duration: 0.42, animRate: 0.1,
     invuln: [0.04, 0.3],
-  },
-  spot: {
-    label: 'Spot dodge (invulnerable)',
-    pose: 'guard', duration: 0.28, animRate: 0.1,
-    invuln: [0.02, 0.22],
   },
   airdodge: {
     label: 'Air dodge (invulnerable)',
@@ -274,6 +298,20 @@ export class EliseoFighter extends AndyFighter {
   }
 
   async load() {
-    this.applySheet(buildEliseoSheet());
+    // Generated art first; the hand-drawn sheet stays as the offline fallback.
+    try {
+      this.applySheet(await loadCousinSheet({
+        url: ELISEO_SHEET_URL,
+        cols: 4, rows: 4,
+        cells: ELISEO_SHEET_CELLS,
+        enginePoses: ELISEO_ENGINE_POSES,
+        poseCell: ELISEO_POSE_CELL,
+      }));
+      // The generated strip is laid out in engine order, not ELISEO_POSES order.
+      this.frameIndex = ELISEO_ENGINE_FRAME_INDEX;
+    } catch {
+      this.applySheet(buildEliseoSheet());
+      this.frameIndex = ELISEO_FRAME_INDEX;
+    }
   }
 }

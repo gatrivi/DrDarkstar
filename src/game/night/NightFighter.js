@@ -1,9 +1,9 @@
-import { AndyFighter } from '../smash/AndyFighter.js';
+import { AndyFighter, NIGHT_BINDINGS } from '../smash/AndyFighter.js';
 import { NIGHT_MOVES, ROSTER } from './Combat.js';
 
 export class NightFighter extends AndyFighter {
   constructor({ kind, input = null, atlas, x, ground, team = 'hostile' }) {
-    super({ input, width: 960, height: 600, spawnX: x });
+    super({ input, width: 960, height: 600, spawnX: x, bindings: NIGHT_BINDINGS });
     this.atlas = atlas;
     this.kind = kind;
     this.team = team;
@@ -31,6 +31,7 @@ export class NightFighter extends AndyFighter {
       : { idle: 0, walk1: 4, walk2: 5, dash: 4, jump: 0, windup: 1 };
     this.action = null;
     this.dashTimer = 0;
+    this.heavyOn = false;
   }
 
   get feet() { return this.y + this.renderHeight / 2; }
@@ -87,6 +88,7 @@ export class NightFighter extends AndyFighter {
     if (this.dead || this.hitstun > 0 || (this.action && !(this.action.name === 'windup' && name === 'golfswing'))) return false;
     const move = this.moveTable[name];
     if (!move) return false;
+    if (name !== 'windup') this.heavyOn = false;
     this.action = { name, time: 0, charge: 0, hitDone: false, targets: new Set(), ...extra };
     this.setFrame(this.actionPose());
     this.vx = 0;
@@ -96,10 +98,11 @@ export class NightFighter extends AndyFighter {
 
   controls(delta, stage) {
     // Keep Cousins' double-tap dash, double-jump, fast-fall, charge/release and
-    // roll control logic. Deckard's primary button is routed to his blaster.
+    // roll control logic. NIGHT_BINDINGS: J attack (tap/hold), H fire,
+    // K jump, L shield; H drives the projectile move for every hunter.
     if (!this.input) return;
     const source = this.input;
-    if (source.isDown('KeyE') && this.guardBroken <= 0 && (this.action?.name === 'block' || this.guard >= 12)) {
+    if (source.isDown('KeyL', 'KeyE') && this.guardBroken <= 0 && (this.action?.name === 'block' || this.guard >= 12)) {
       if (!this.action) this.startMove('block');
       if (this.action?.name === 'block') {
         const direction = Number(source.isDown('KeyD','ArrowRight'))-Number(source.isDown('KeyA','ArrowLeft'));
@@ -112,19 +115,15 @@ export class NightFighter extends AndyFighter {
     // bolts; jump, roll or attack to come back up.
     this.crouching = !!(this.onGround && !this.action && this.hitstun <= 0 &&
       source.isDown('KeyS', 'ArrowDown'));
-    const gun = this.kind === 'deckard';
     const whip = this.kind === 'relic';
+    // NIGHT_BINDINGS: J attack (tap punch / hold heavy), H fire, K jump,
+    // L shield, A/D move, S crouch, Shift roll. H drives the tilt key, whose
+    // legacy fallback spawns the projectile move: shuriken, blaster bolt, or
+    // (via the hook below) the relic hunter's e-rad whip.
     this.input = {
       isDown: (...codes) => source.isDown(...codes),
-      consume: code => {
-        if (code === 'KeyI' || code === 'KeyU') return false;
-        if (gun && code === 'KeyJ') return false;
-        if (gun && code === 'KeyL') return source.consume('KeyJ') || source.consume('KeyL');
-        // The relic hunter has no shurikens: J/L cast the e-rad whip instead.
-        if (whip && code === 'KeyJ') return false;
-        if (whip && code === 'KeyL') return source.consume('KeyJ') || source.consume('KeyL');
-        return source.consume(code);
-      },
+      consume: code => (code === 'KeyI' || code === 'KeyU') ? false : source.consume(code),
+      pressed: source.pressed,
     };
     try { super.controls(delta, stage); } finally { this.input = source; }
     // Retarget the serve projectile the shared controls fired into the whip.
