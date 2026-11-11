@@ -1,0 +1,14 @@
+# Store and check out text as LF on every OS (the repo is already all-LF);
+# silences the "LF will be replaced by CRLF" warning on every commit.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.mp4 binary
+*.mp3 binary
+*.wav binary
+*.ogg binary
+*.ico binary

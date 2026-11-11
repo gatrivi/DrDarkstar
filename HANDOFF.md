@@ -1,4 +1,8 @@
-# Dr Darkstar handoff — 2026-09-08
+# Dr Darkstar handoff — 2026-11-11
+
+## Added 2026-11-11: test tooling (branch `smash-cousins-demo`)
+
+`npm run test:browser` / `test:all` run every browser harness with no setup (shared launcher `tests/browser-env.mjs`, `playwright-core` devDependency, installed Edge/Chrome). New `tests/smash-browser.mjs` (29 checks). `AGENTS.md` now carries the file map, commands and rules. The sections below the dated log were refreshed to match the code.
 
 ## Added 2026-10-20 — bug-fix pass (branch `smash-cousins-demo`)
 
@@ -29,55 +33,54 @@ Latest expansion: **L throws Blade's spinning shuriken**, with new windup/releas
 
 ## Intent and scope
 
-Small-games playground in plain browser JavaScript + Canvas 2D (no React, no dependencies, no build step). Started as pixel-rain music visualizations; now a two-game select structure built for a birthday demo:
+Small-games playground in plain browser JavaScript + Canvas 2D (no framework, no runtime dependencies, no bundler; `npm run build` just copies the runtime files to `dist/` for Vercel). Started as pixel-rain music visualizations; now four games behind `games.html`, built for a birthday demo:
 
-1. **Super Smash Cousins** (`smash.html`) — 8-bit Smash-Bros-style fighter with the user's cousin Andy as the playable character vs a training dummy. This is the active project.
-2. **Rain Studies** (`rain.html`) — the original invisible-character-in-rain visualization. Set aside as its own game; still fully working.
+1. **Rain Studies** (`rain.html`, 001): the original invisible-character-in-rain visualization.
+2. **Super Smash Cousins** (`smash.html`, 002): Smash-style fighter starring the cousins. The main project; `/` redirects here.
+3. **Night Hunters** (`night.html`, 003): Blade/Deckard side-scroller with waves, a rooftops layout and the Root Archive breach.
+4. **Lost Expedition / Root Archive** (`lost.html`, 004): exploration level with climbable pillars and collectible memories.
+
+Dev pages: `sprites.html` (Sprite Forge), `cape-keyframes.html`, `debug-forge.html` (untracked). See `AGENTS.md` for the file map, commands and working rules.
 
 Be laconic; continue authorized work without repeated confirmation. Don't overwrite user art or clean the dirty worktree.
 
-## Run and state
+## Run and test
 
-- `node server.mjs` serves http://localhost:8080 (check it's not already running first).
-- **`/` (index.html) redirects straight to `smash.html`** so reloads land on the fight. Game select lives at `games.html`; Esc and the "◀ Game select" links go there.
-- Entry points: `src/smash.js` and `src/rain.js` (the old combined `src/main.js` is deleted).
-- Tests: `node --test tests/smash.test.mjs tests/rain.test.mjs` — 12 passing.
+- `npm run dev` serves http://localhost:8080 (check it's not already running first).
+- `npm test`: unit tests. `npm run test:browser`: every `tests/*-browser.mjs` harness (starts the server if needed; `-- smash` filters). `npm run test:all`: both.
+- Browser harnesses use the `playwright-core` devDependency plus the installed Edge/Chrome (`tests/browser-env.mjs`). They write screenshots and `verification.json` to `output/<game>/` (the cape harness writes to `archive/cape-reference/`).
 
-## Super Smash Cousins — current state
+## Super Smash Cousins: current state
 
 ### Files (`src/game/smash/`)
-- `AndyFighter.js` — extends `AnimatedSprite`. Builds a **hand-drawn 9-frame 24×32 pixel spritesheet** (poses: idle, punch1-3, windup, swing, serve, super, whistle). No photo pixelation anymore. Skin/hair palette is **sampled from `andy.jpeg`** at load (face/hair regions averaged; falls back to hardcoded palette). Wardrobe: Akatsuki-style black jacket with red cloud pixels, Link cap (he's an SSB1 Link main), Hylian shield on back for non-sword poses, Master Sword for windup/swing. Dummy = palette-swap (`PALETTES.dummy`). Real physics: gravity/velocity, double-jump, fast-fall, double-tap dash.
-- `Moveset.js` — data table. J = Wing Tsun chain punch (3%, flurry poses). Hold K = Master Sword charge → release for golf-style drive (9–21%, knockback scales with victim %). L = ping-pong ball projectile. I = retriever summon. U = Todd-the-Vegan power (5s, 1.5× knockback, green aura).
-- `Retriever.js` — black retriever, red collar, 2-frame gallop; sprints the stage, 7% hit, tumbles off platform edges with gravity, never bites its owner.
-- `Projectile.js` — bouncing ball; bounces only on the slab.
-- `SmashStage.js` — scene, hitboxes, Smash percent HUD + stocks, **floating platform** ({x0: 12%w, x1: 88%w, y: 62%h}) raised clear of the bottom UI; falling off an edge KOs off the bottom. Pure exported fns `knockback()` / `isOutOfBounds()` are unit-tested. Exports `MOVES`-driven spawn handling. Per-fighter focused `CollisionRain` reveal layers + ambient rain. Master Sword slash arc effect. Dummy AI wanders within a safe band and steers back from edges.
-- `smash.js` — standalone entry. Win check (all stocks lost → status announces winner), Reset match button, Esc → games.html.
+- `SmashStage.js`: scene, hit resolution (shield, dodge, hitstop, screen shake), percent HUD + stocks, floating slab, blast-zone KOs, camera, full-world rain. Pure helpers (`knockback`, `isOutOfBounds`, `shieldCost`, `boxesOverlap`, `foeFor`…) are unit-tested.
+- Roster: `AndyFighter.js` (base fighter class: physics, double-jump, dash, shield, rolls, P1/P2 key bindings; also the parent of Night Hunters' fighter), `Eliseo.js`, `Simon.js`. Art comes from generated pose sheets (`AndySheet.js`, `SheetLoader.js`) with the checkerboard keyed out at load.
+- `Moveset.js`: N64-tier kit data (jab, tilts, aerials, dash attack, charged smashes), shield and hitstop tuning.
+- `CpuBrain.js`: CPU presses a virtual pad, so it plays through the same move code as a human. `Y` toggles it between fighting and an idle training dummy.
+- Summons and projectiles: `Retriever.js` (Andy's retriever, Simon's pitbull), `SnakeSummon.js` (Eliseo), `Projectile.js`.
+- `StageArt.js` (painted city + slab; photo backdrops in `assets/smash/` replace the plate, `B` cycles), `Sfx.js` (procedural sound effects).
+- `src/smash.js`: entry. Cousin pickers, versus toggle, win check, Reset match, pause (auto on blur), remappable controls panel (persisted in localStorage), touch pad.
 
 ### Controls
-A/D/arrows move · W/Space jump (double-jump) · S fast-fall · double-tap direction dash · J punch · hold K charged sword · L ball · I dog · U vegan power · Esc exit.
+The in-page footer in `smash.html` is the source of truth. P1: A/D move · W jump ×2 · S shield/fast-fall · J attack (+direction for tilts/aerials) · L tilt · hold K smash · Shift roll. P2: arrows · `,` jab · `.` tilt · hold `/` smash · RightShift dodge. System: T versus · Y CPU/dummy · C swap · N world rain · B backdrop · P pause · M music · R reset damage · H hitboxes · I summon · U power · O controls · Esc game select.
 
 ## Engine fixes worth knowing (made for embedded-webview testing, kept for robustness)
 
-- `GameLoop` (`src/engine/GameLoop.js`) is rAF-first but **falls back to a setTimeout tick** if no rAF frame arrives within 500ms — some embedded webviews never fire rAF.
-- Sprite loading in `CapeSprite.js`/`AndyFighter.js` resolves on `image.onload`, **not `image.decode()`** — `decode()` hangs forever in some webviews.
-- `server.mjs` mime map now includes `.jpg`/`.jpeg`.
+- `GameLoop` (`src/engine/GameLoop.js`) is rAF-first but **falls back to a setTimeout tick** if no rAF frame arrives within 500ms; some embedded webviews never fire rAF.
+- Sprite loading resolves on `image.onload`, **not `image.decode()`**; `decode()` hangs forever in some webviews.
+- `Input` passes game keys through toolbar controls marked `data-game-keys`, and clicked buttons blur themselves, so keys keep driving the game after a click.
 
-## Rain Studies — unchanged behavior
+## Verification last completed (2026-11-11)
 
-See `rain.html` + `src/rain.js`; CapeSprite sheets, Rain Lab toolbox, music picker/demo, autoattack all as before (details in git history / earlier README notes). Only change: Game select link points to `games.html`, and the two engine fixes above apply to it too.
-
-## Verification last completed (2026-09-08)
-
-- 12 unit tests pass (knockback scaling incl. vegan 1.5×, blast-zone margins + original 8 rain tests).
-- In-browser harness (injected module in the page) verified: punch/golf/ball/dog damage numbers, KO → stock loss → respawn, vegan multiplier, edge-walk fall KO, dummy edge safety, palette sampling from andy.jpeg, zero page errors on both games.
+- `npm run test:all`: 67 unit tests pass; 5/5 browser harnesses pass (cape, lost, night, night-effects, smash). Smash harness: 29 keyboard-driven checks, see `output/smash-cousins/verification.json`.
+- Every page (`games`, `smash`, `rain`, `night`, `lost`, `sprites`) loads with zero console errors. `cape-keyframes.html` logs one 404 (dev page, unlinked).
 
 ## Known limitations / sensible next work
 
-1. Sprite is procedurally drawn — charmingly crude. Agreed next step: **export the generated sheet to PNG once, hand-edit in Aseprite/Piskel, load the file instead** (`buildSpriteSheet` → `applySheet` split makes this a small change).
-2. No sound effects wired for smash hits yet (AudioField pulse exists; stage calls `sound.pulse()` on hits).
-3. One-player only vs dummy; second human player needs a second Input mapping.
-4. Recovery after falling off the platform is hard (double-jump only) — consider a lower ledge or softer bottom blast zone if it frustrates casual players.
-5. Rain Studies: Rain Lab settings not persisted; fade slider step quirk (see old notes below in git history).
+1. No browser harness yet for Rain Studies gameplay (the cape harness checks sprite frames only) or for Sprite Forge.
+2. Recovery after falling off the slab is hard (double-jump only); consider a softer bottom blast zone if it frustrates casual players.
+3. Rain Studies: Rain Lab settings not persisted; fade slider step quirk.
+4. Untracked debug probes (`output/relic-*.mjs`, probe PNGs, `debug-forge.html`) are left from the Root Archive work; keep or delete by the owner's call.
 
 ## References and assets
 
