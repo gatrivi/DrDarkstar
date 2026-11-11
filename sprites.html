@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#04060d" />
+  <link rel="icon" href="data:," />
+  <title>Sprite Forge - Dr Darkstar</title>
+  <meta name="description" content="Dr Darkstar sprite sheet workbench: key out the checkerboard background, slice the grid, trim and baseline-align every frame, preview the loop on a Final Destination-style stage, and export PNG, ZIP or JSON." />
+  <link rel="stylesheet" href="./src/sprites.css" />
+</head>
+<body>
+  <div class="crt" aria-hidden="true"></div>
+
+  <header class="topbar">
+    <a class="back" href="./games.html">&larr; GAME SELECT</a>
+    <div class="brand"><span class="b1">SPRITE</span><span class="b2">FORGE</span></div>
+    <div class="tag">DR DARKSTAR <i>&#47;&#47;</i> SPRITESHEET PLATFORM <b>005</b></div>
+    <div class="chip" id="srcChip" title="Current source sheet">NO SOURCE</div>
+  </header>
+
+  <main class="layout">
+    <!-- ============ SOURCE ============ -->
+    <section class="panel col-left">
+      <div class="sect-head"><h2>SOURCE</h2><span class="rule"></span></div>
+
+      <div class="drop" id="dropzone" tabindex="0" role="button" aria-label="Load a sprite sheet">
+        <div class="drop-title">DROP A SHEET</div>
+        <div class="drop-sub">PNG / JPG &middot; or browse below</div>
+        <button class="btn primary sm" id="browseBtn" type="button">BROWSE FILE</button>
+      </div>
+      <input type="file" id="fileInput" accept="image/*" hidden />
+
+      <div class="row tight">
+        <input type="text" id="pathInput" class="field" placeholder="./assets/andy/andy-spritesheet-v1.png" spellcheck="false" />
+        <button class="btn sm" id="loadPathBtn" type="button">LOAD</button>
+      </div>
+
+      <div class="sect-head"><h2>PRESETS</h2><span class="rule"></span></div>
+      <div class="presets" id="presets"></div>
+      <button class="btn ghost sm wide" id="btnDemo" type="button">GENERATE DEMO SHEET</button>
+
+      <div class="sect-head"><h2>BACKGROUND KEY</h2><span class="rule"></span></div>
+      <label class="sw"><input type="checkbox" id="keyToggle" checked /><span>REMOVE CHECKERBOARD</span></label>
+      <label class="sw"><input type="checkbox" id="despillToggle" checked /><span>DESPILL EDGES</span></label>
+      <div class="slider">
+        <label for="tolRange">TOLERANCE <b id="tolVal">24</b></label>
+        <input type="range" id="tolRange" min="0" max="120" value="24" />
+      </div>
+      <div class="slider">
+        <label for="softRange">SOFTNESS <b id="softVal">20</b></label>
+        <input type="range" id="softRange" min="0" max="120" value="20" />
+      </div>
+      <div class="swatches" id="bgSwatches" title="Detected background colours"></div>
+      <button class="btn sm wide" id="rekeyBtn" type="button">RE-KEY SHEET</button>
+
+      <div class="meta" id="srcMeta">No sheet loaded.</div>
+    </section>
+
+    <!-- ============ STAGE ============ -->
+    <section class="panel col-stage">
+      <div class="stage-toolbar">
+        <div class="seg" role="group" aria-label="View mode">
+          <button class="btn sm on" id="modeStage" type="button">STAGE</button>
+          <button class="btn sm" id="modeSheet" type="button">SHEET</button>
+        </div>
+        <button class="btn sm" id="gridToggle" type="button" aria-pressed="true">GRID</button>
+        <button class="btn sm" id="onionToggle" type="button" aria-pressed="false">ONION</button>
+        <button class="btn sm" id="pivotToggle" type="button" aria-pressed="true">PIVOT</button>
+        <button class="btn sm" id="rainToggle" type="button" aria-pressed="true">RAIN</button>
+        <button class="btn sm" id="zoomFitBtn" type="button">FIT</button>
+        <span class="spacer"></span>
+        <span class="read" id="hudRead">--</span>
+      </div>
+      <div class="stagewrap">
+        <canvas id="stage" aria-label="Sprite preview stage"></canvas>
+        <div class="hud tl" id="hudFrame">NO FRAME</div>
+        <div class="hud tr" id="hudState">IDLE</div>
+        <div class="hud bl" id="hudHint">drag to pan &middot; wheel to zoom</div>
+      </div>
+      <div class="slider inline">
+        <label for="zoomRange">ZOOM <b id="zoomVal">1.00&times;</b></label>
+        <input type="range" id="zoomRange" min="20" max="600" value="100" />
+      </div>
+    </section>
+
+    <!-- ============ SLICE / FRAMES / EXPORT ============ -->
+    <section class="panel col-right">
+      <div class="scroll">
+        <div class="sect-head"><h2>GRID SLICE</h2><span class="rule"></span></div>
+        <label class="sw"><input type="checkbox" id="autoSize" checked /><span>AUTO CELL SIZE</span></label>
+        <div class="nums">
+          <label>COLS<input type="number" id="cols" min="1" max="64" value="4" /></label>
+          <label>ROWS<input type="number" id="rows" min="1" max="64" value="4" /></label>
+          <label>CELL W<input type="number" id="cellW" min="1" value="0" /></label>
+          <label>CELL H<input type="number" id="cellH" min="1" value="0" /></label>
+          <label>MARGIN<input type="number" id="margin" min="0" value="0" /></label>
+          <label>SPACING<input type="number" id="spacing" min="0" value="0" /></label>
+          <label>OFF X<input type="number" id="offX" value="0" /></label>
+          <label>OFF Y<input type="number" id="offY" value="0" /></label>
+        </div>
+
+        <div class="sect-head"><h2>FIT &amp; ALIGN</h2><span class="rule"></span></div>
+        <label class="sw"><input type="checkbox" id="trimToggle" checked /><span>TRIM TO CONTENT</span></label>
+        <label class="sw"><input type="checkbox" id="baselineToggle" checked /><span>ALIGN BASELINE (FEET)</span></label>
+        <label class="sw"><input type="checkbox" id="centerXToggle" checked /><span>CENTER HORIZONTALLY</span></label>
+
+        <div class="sect-head"><h2>FRAMES <b id="frameCount">0</b></h2><span class="rule"></span></div>
+        <div class="row tight">
+          <button class="btn ghost sm" id="selAll" type="button">ALL</button>
+          <button class="btn ghost sm" id="selNone" type="button">NONE</button>
+          <button class="btn ghost sm" id="selInv" type="button">INVERT</button>
+        </div>
+        <div class="frames" id="frameList"></div>
+
+        <div class="sect-head"><h2>EXPORT</h2><span class="rule"></span></div>
+        <div class="row tight">
+          <label class="mini">ATLAS
+            <select id="expMode">
+              <option value="normalized">normalized sheet</option>
+              <option value="trimmed">trimmed frames</option>
+            </select>
+          </label>
+          <label class="mini">SCALE
+            <select id="expScale">
+              <option value="1">1&times;</option>
+              <option value="2">2&times;</option>
+              <option value="3">3&times;</option>
+              <option value="4">4&times;</option>
+            </select>
+          </label>
+        </div>
+        <div class="row tight">
+          <input type="text" id="expName" class="field" value="frames" spellcheck="false" aria-label="File name prefix" />
+        </div>
+        <button class="btn sm wide" id="expCurrent" type="button">PNG &middot; CURRENT FRAME</button>
+        <button class="btn sm wide" id="expSheet" type="button">PNG &middot; NORMALIZED SHEET</button>
+        <button class="btn sm wide" id="expZip" type="button">ZIP &middot; FRAMES + ATLAS</button>
+        <button class="btn sm wide" id="expKeyed" type="button">PNG &middot; KEYED SHEET</button>
+        <div class="row tight">
+          <button class="btn ghost sm" id="expJson" type="button">JSON &middot; ATLAS</button>
+          <button class="btn ghost sm" id="copyJson" type="button">COPY</button>
+        </div>
+        <pre class="json" id="jsonPreview"></pre>
+      </div>
+    </section>
+  </main>
+
+  <footer class="transport">
+    <div class="tp-left">
+      <button class="btn sm" id="btnFirst" type="button" title="First frame">&#9198;</button>
+      <button class="btn sm" id="btnPrev" type="button" title="Previous frame">&#9664;&#9664;</button>
+      <button class="btn play" id="btnPlay" type="button" title="Play / pause (Space)">&#9654; PLAY</button>
+      <button class="btn sm" id="btnNext" type="button" title="Next frame">&#9654;&#9654;</button>
+      <button class="btn sm" id="btnLast" type="button" title="Last frame">&#9197;</button>
+    </div>
+    <input type="range" id="scrub" class="scrub" min="0" max="0" value="0" aria-label="Frame scrubber" />
+    <div class="tp-right">
+      <span class="count" id="frameCounter">0 / 0</span>
+      <label class="mini">FPS <input type="number" id="fps" class="num-sm" min="1" max="60" value="8" /></label>
+      <select id="loopMode" aria-label="Loop mode">
+        <option value="loop">LOOP</option>
+        <option value="pingpong">PING-PONG</option>
+        <option value="once">ONCE</option>
+      </select>
+      <span class="keys">SPACE play &middot; &larr;&rarr; step &middot; G grid &middot; O onion &middot; F fit &middot; S stage/sheet</span>
+    </div>
+  </footer>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <noscript><p style="color:#cfe9f5;font:14px monospace;padding:20px">Sprite Forge needs JavaScript. Run <code>node server.mjs</code> in the project root, then open <code>/sprites.html</code>.</p></noscript>
+  <script type="module" src="./src/sprites.js"></script>
+</body>
+</html>
