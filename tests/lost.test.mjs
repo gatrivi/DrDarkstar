@@ -68,3 +68,16 @@ test('log platforms allow jumping from below and catch falling feet',()=>{
   tick(w,55);assert.equal(w.player.y,448);assert.equal(w.player.grounded,true);
   walk(w,459);tick(w,60);assert.equal(w.player.y,512);
 });
+
+test('pillars are climbable, never walls, and reach the high memories',()=>{
+  const w=new LostWorld();w.player.x=976;
+  tick(w,160,{up:true});assert.ok(w.player.y<=64,`climbed to ${w.player.y}`);
+  tick(w,30);assert.equal(w.player.y,64);assert.equal(w.player.grounded,true);
+  w.player.x=976;w.player.y=512;tick(w,1);
+  tick(w,40,{up:true});tick(w,1,{left:true});tick(w,30);
+  assert.equal(w.blocked(w.body()),false);
+  const lair=new LostWorld();lair.player.x=976;
+  for(let i=0;i<200&&lair.player.y>300;i++)lair.update(1/60,{up:true});
+  walk(lair,360);tick(lair,10);assert.equal(lair.player.y,320);
+  tick(lair,1,{interact:true});assert.ok(lair.memories.has('datalair'));
+});

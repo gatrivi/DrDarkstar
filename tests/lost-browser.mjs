@@ -39,7 +39,7 @@ try {
   await page.evaluate(()=>{Object.assign(window.expedition.world.player,{x:549,y:384,crouch:false,vy:0,grounded:true});});
   await page.waitForTimeout(800);await page.keyboard.press('e');await page.waitForTimeout(80);
   check(await page.evaluate(()=>window.expedition.world.memories.has('canopy')),'E discovers canopy memory');
-  check(await page.locator('#memories').textContent()==='MEMORIES 1 / 3','memory discovery reaches HUD');
+  check(await page.locator('#memories').textContent()==='MEMORIES 1 / 5','memory discovery reaches HUD');
   await page.screenshot({path:'output/lost-area/canopy-memory.png',fullPage:true});
   await page.evaluate(()=>{Object.assign(window.expedition.world.player,{x:1940,y:448,crouch:false,vy:0,grounded:true});});
   await page.waitForTimeout(900);

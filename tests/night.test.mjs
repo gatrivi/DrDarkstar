@@ -8,7 +8,7 @@ import {
 import { NightFighter } from '../src/game/night/NightFighter.js';
 import { NightStage } from '../src/game/night/NightStage.js';
 import { ZEN, zoneOf, pastGate, inNoodleBar, photoLog, filmStrip, PHOTO_LOGS, mellowLevel, atBreach } from '../src/game/night/ZenZone.js';
-import { RELIC_RELAY_X, RUINS_EXIT_X } from '../src/game/night/RelicVista.js';
+import { RELIC_RELAY_X, RELIC_MURAL_X, RELIC_MEMORY_X, RUINS_EXIT_X, RUINS_RETURN_X } from '../src/game/night/RelicVista.js';
 import { CANTEEN, GlassRain } from '../src/game/night/Canteen.js';
 
 const attacker = { team: 'hunter', facing: 1 };
@@ -272,7 +272,8 @@ test('the west breach damps the storm and opens onto the archive', () => {
   const sample = [];
   for (let x = ZEN.relicGate; x <= ZEN.relicGate + 240; x += 12) sample.push(mellowLevel(x));
   for (let i = 1; i < sample.length; i++) assert.ok(sample[i] >= sample[i - 1], 'mellowing is monotonic');
-  assert.ok(RUINS_EXIT_X > ZEN.relicGate && RUINS_EXIT_X < ZEN.gate, 'exit hysteresis sits inside uptown');
+  assert.ok(RUINS_EXIT_X > Math.max(RELIC_RELAY_X, RELIC_MURAL_X, RELIC_MEMORY_X), 'every archive landmark sits before the exit');
+  assert.ok(RUINS_RETURN_X > ZEN.relicGate && RUINS_RETURN_X < ZEN.gate, 'leaving lands in uptown, clear of the breach');
   assert.ok(ROSTER.relic.row !== ROSTER.vampire.row && ROSTER.relic.row !== ROSTER.replicant.row,
     'relic sheet does not collide with enemy rows');
 });

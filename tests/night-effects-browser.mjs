@@ -22,7 +22,7 @@ try{
       const ctx=document.querySelector('#night-game').getContext('2d');
       const tick=()=>{loop.update(1/60);stage.render(ctx);};
       for(let i=0;i<12;i++)tick();
-      const code=pose==='throw'?'KeyL':'KeyE';input.down.add(code);input.pressed.add(code);
+      const code=pose==='throw'?'KeyH':'KeyE';input.down.add(code);input.pressed.add(code);
       for(let i=0;i<11;i++)tick();
       if(pose!=='throw'){
         stage.enemies[0].facing=-1;stage.hit(stage.enemies[0],stage.player,NIGHT_MOVES.claw);tick();

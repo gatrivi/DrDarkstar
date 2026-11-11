@@ -9,6 +9,7 @@ import { SHIELD, chargeBonus, shieldstun, hitstopFor, shakeFor, KO_HITSTOP, MAX_
 import { WorldRain } from '../night/WorldRain.js';
 import { buildBackground, buildPhotoBackdrop, buildPlatformArt, twinkles } from './StageArt.js';
 import { loadImage } from './SheetLoader.js';
+import { CpuBrain } from './CpuBrain.js';
 
 // Photo backdrops dropped in as stage art (B cycles them; painted plate is the fallback).
 const BACKDROP_SOURCES = [
@@ -59,13 +60,16 @@ export function boxesOverlap(a, b) {
 }
 
 export class SmashStage {
-  constructor({ input, width, height, sound, player = 'andy', foe = null, mode = 'cpu' }) {
+  constructor({ input, width, height, sound, player = 'andy', foe = null, mode = 'cpu', cpuLevel = 'fight' }) {
     this.width = width; this.height = height;
     this.input = input;
     this.sound = sound;
     this.sfx = new SmashSfx(sound);
     this.player = player;
     this.mode = mode; // 'cpu' (P1 vs dummy AI) | 'versus' (P1 vs P2, same keyboard)
+    this.cpu = new CpuBrain();
+    this.bottomInset = 0; // screen px covered by the page's bottom UI
+    this.cpuLevel = cpuLevel; // 'fight' (CpuBrain drives the foe) | 'dummy' (idle training dummy)
     this.dogs = [];
     this.koFlashes = []; // { x, y, time }
     this.popups = [];    // { x, y, text, color, time }
@@ -84,7 +88,7 @@ export class SmashStage {
     // An explicitly picked foe is honored unless it mirrors P1 or isn't real.
     this.foe = foe && ROSTER_CLASSES[foe] && foe !== pick ? foe : foeFor(pick);
     this.dummy = new ROSTER_CLASSES[this.foe]({
-      input: mode === 'versus' ? input : null, width, height,
+      input: mode === 'versus' ? input : (cpuLevel === 'fight' ? this.cpu.pad : null), width, height,
       bindings: P2_BINDINGS, name: FIGHTER_NAMES[this.foe],
       spawnX: width * 0.7,
     });
@@ -141,8 +145,14 @@ export class SmashStage {
       this.dummy.input = this.input;
       this.dummy.bindings = P2_BINDINGS;
     } else {
-      this.dummy.input = null;
+      this.cpu.reset();
+      this.dummy.input = this.cpuLevel === 'fight' ? this.cpu.pad : null;
     }
+  }
+
+  setCpuLevel(level) {
+    this.cpuLevel = level;
+    if (this.mode === 'cpu') this.setMode('cpu');
   }
 
   // Floating battlefield slab, raised clear of the bottom UI, with open edges
@@ -181,6 +191,9 @@ export class SmashStage {
     for (const f of [this.andy, this.dummy]) {
       f.x *= sx; f.y *= sy;
       f.scale = this.fighterScale() * (f.unitScale ?? 1);
+      // Keep grounded fighters standing on the rescaled slab (landing only
+      // catches feet crossing from above, so they'd otherwise drop through).
+      if (f.onGround) f.y = this.platform.y - f.renderHeight / 2;
     }
     this.ambientRain.resize(width, height);
     for (const rain of this.rains) {
@@ -201,12 +214,13 @@ export class SmashStage {
     this.popups.push({ x, y, text, color, time: 0 });
   }
 
-  // Training dummy: stands idle where it is, facing the player. No attacks,
-  // no dodges, no wandering — you move it by walking into it (body push) or
-  // by hitting it. In versus mode the second player drives it instead.
-  driveDummy() {
+  // CPU side. 'fight': CpuBrain presses the foe's keys. 'dummy': stands idle
+  // where it is, facing the player — you move it by walking into it (body
+  // push) or by hitting it. In versus mode the second player drives it instead.
+  driveDummy(delta) {
     const d = this.dummy;
     if (this.mode !== 'cpu') return;
+    if (d.input === this.cpu.pad) { this.cpu.update(delta, d, this.andy, this); return; }
     if (d.hitstun > 0 || d.action || d.respawnTimer > 0) return;
     const dir = Math.sign(this.andy.x - d.x);
     if (dir) d.facing = dir;
@@ -215,6 +229,10 @@ export class SmashStage {
   // Grounded fighters shove each other apart instead of stacking — Smash-style
   // body push. This is what moves the idle dummy when you walk into it, and
   // it works both ways: two players can shove each other around the slab.
+  get matchOver() {
+    return this.andy.stocks <= 0 || this.dummy.stocks <= 0;
+  }
+
   pushBodies() {
     const a = this.andy, b = this.dummy;
     if (a.respawnTimer > 0 || b.respawnTimer > 0) return;
@@ -277,8 +295,9 @@ export class SmashStage {
     const kb = knockback(target.percent, move.base + (move.chargeable ? bonus.base : 0), move.scaling, attacker.veganGlow > 0)
       * (countered ? COUNTER_HIT_MULT : 1);
     const angle = move.angle ?? -0.3;
-    const dirSign = move.box === 'up' ? 1 : (attacker.facing || 1);
-    const hDir = move.box === 'both' ? Math.sign(target.x - attacker.x) || (attacker.facing || 1) : dirSign;
+    // Up and two-sided moves launch away from the attacker; others follow facing.
+    const away = Math.sign(target.x - attacker.x) || (attacker.facing || 1);
+    const hDir = move.box === 'both' || move.box === 'up' ? away : (attacker.facing || 1);
     target.vx = hDir * kb * Math.cos(angle);
     target.vy = kb * Math.sin(angle);
     target.hitstun = Math.min(0.9, 0.15 + kb / 1400);
@@ -312,7 +331,7 @@ export class SmashStage {
     }
     // Couch join: any P2 attack key drops a second human in.
     if (this.mode === 'cpu' && this.input) {
-      const join = ['Comma', 'Period', 'Slash', 'Numpad1', 'Numpad2', 'Numpad3', 'ShiftRight', 'Numpad0']
+      const join = [...P2_BINDINGS.jab, ...P2_BINDINGS.tilt, ...P2_BINDINGS.smash, ...P2_BINDINGS.roll]
         .some((c) => this.input.consume(c));
       if (join) {
         this.setMode('versus');
@@ -320,8 +339,9 @@ export class SmashStage {
       }
     }
     this.andy.update(delta, this);
-    this.driveDummy();
+    this.driveDummy(delta);
     this.dummy.update(delta, this);
+    this.cpu.pad.endFrame();
     this.pushBodies();
 
     // Melee hitboxes vs the other fighter (supports multi-box down-smash).
@@ -416,6 +436,10 @@ export class SmashStage {
         this.hitstop = Math.max(this.hitstop, KO_HITSTOP);
         this.shake = Math.max(this.shake, 18);
         f.respawn(this);
+        if (f.stocks <= 0) {
+          f.respawnTimer = Infinity; // eliminated: hidden and untouchable until Reset match
+          f.invuln = 0;
+        }
       }
     }
     this.updateFx(delta, audioLevels);
@@ -518,8 +542,11 @@ export class SmashStage {
     const viewW = this.width / targetZoom, viewH = this.height / targetZoom;
     let tx = (a.x + d.x) / 2;
     tx = Math.max(viewW / 2, Math.min(this.width - viewW / 2, tx));
-    let ty = this.platform.y - viewH * 0.30;
-    ty = Math.max(viewH / 2 - 80, Math.min(this.height - viewH / 2 + 60, ty));
+    // Slab sits ~2/3 down the screen, or higher when the bottom UI (toolbar,
+    // touch pad: bottomInset px) would cover it.
+    const slabY = Math.min(this.height * 0.66, this.height - this.bottomInset - 24);
+    let ty = this.platform.y - (slabY - this.height / 2) / targetZoom;
+    ty = Math.max(viewH / 2 - 80 - this.bottomInset / targetZoom, Math.min(this.height - viewH / 2 + 60, ty));
     const k = 1 - Math.exp(-delta * 5);
     this.cam.zoom += (targetZoom - this.cam.zoom) * k;
     this.cam.x += (tx - this.cam.x) * k;

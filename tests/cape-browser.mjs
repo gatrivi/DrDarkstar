@@ -1,13 +1,15 @@
-import { chromium } from 'file:///C:/Users/DevTrivi/AppData/Local/npm-cache/_npx/9833c18b2d85bc59/node_modules/playwright/index.mjs';
 import { writeFile, mkdir } from 'node:fs/promises';
 import assert from 'node:assert/strict';
+import { pathToFileURL } from 'node:url';
 
-const browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+const modulePath = process.env.PLAYWRIGHT_MODULE || 'C:/Users/DevTrivi/AppData/Local/npm-cache/_npx/9833c18b2d85bc59/node_modules/playwright/index.mjs';
+const { chromium } = await import(pathToFileURL(modulePath).href);
+const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PATH || 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
 const page = await browser.newPage({ viewport: { width: 1440, height: 1000 } });
 const errors = [];
 page.on('pageerror', error => errors.push(error.message));
 try {
-  await page.goto('http://localhost:8080');
+  await page.goto('http://localhost:8080/rain.html');
   await page.waitForFunction(() => document.querySelector('#status').textContent.includes('frame'));
   const result = await page.evaluate(async () => {
     const { CapeSprite } = await import('/src/game/CapeSprite.js');

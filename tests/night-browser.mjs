@@ -86,6 +86,8 @@ try {
   await page.keyboard.press('e');
   await page.waitForTimeout(300);
   assert.ok(await page.evaluate(()=>window.nightTest.stage.callouts.length>0),'the engraved wall speaks');
+  await page.evaluate(()=>{window.nightTest.stage.player.x=840;});
+  assert.equal(await page.evaluate(()=>window.nightTest.stage.state),'strolling','the archive never starts the hunt');
   await page.keyboard.down('d'); await page.waitForTimeout(800); await page.keyboard.up('d');
   await page.waitForFunction(()=>!window.nightTest.stage.ruins,null,{timeout:5000});
   await page.evaluate(()=>{window.nightTest.stage.player.x=300;});

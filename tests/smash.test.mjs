@@ -210,3 +210,28 @@ test('blast zones trigger only past the margin', () => {
   assert.equal(isOutOfBounds({ x: 400, y: 700 }, 800, 600), true);
   assert.equal(isOutOfBounds({ x: 950, y: 300 }, 800, 600), true);
 });
+
+test('CPU recovers toward the slab, closes distance and attacks through its pad', async () => {
+  const { CpuBrain } = await import('../src/game/smash/CpuBrain.js');
+  const { P2_BINDINGS } = await import('../src/game/smash/AndyFighter.js');
+  const stage = { width: 1000, platform: { x0: 120, x1: 880, y: 500 }, matchOver: false };
+  const fighter = (x, extra = {}) => ({ x, y: 500, vy: 0, onGround: true, jumpsLeft: 2, facing: 1,
+    renderWidth: 80, renderHeight: 100, percent: 0, respawnTimer: 0, hitstun: 0, bindings: P2_BINDINGS, ...extra });
+  // Off the left edge, falling: drift right and jump.
+  const cpu = new CpuBrain(() => 0.5);
+  cpu.update(1 / 60, fighter(60, { onGround: false, vy: 200, y: 520 }), fighter(500), stage);
+  assert.ok(cpu.pad.isDown('ArrowRight'));
+  assert.ok(cpu.pad.consume('ArrowUp'));
+  // Far away: walk toward the foe.
+  const walker = new CpuBrain(() => 0.5);
+  walker.update(1 / 60, fighter(300), fighter(700), stage);
+  assert.ok(walker.pad.isDown('ArrowRight'));
+  // In reach, cooldown spent: an attack key is pressed (r = .5 → jab).
+  const striker = new CpuBrain(() => 0.5);
+  striker.cooldown = 0;
+  striker.update(1 / 60, fighter(500), fighter(540), stage);
+  assert.ok(striker.pad.consume('Comma'));
+  // Eliminated or match over: hands off.
+  striker.update(1 / 60, fighter(500, { respawnTimer: Infinity }), fighter(540), stage);
+  assert.equal(striker.pad.down.size, 0);
+});

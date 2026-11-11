@@ -16,10 +16,24 @@ const unlock = () => sound.enable().catch(() => {});
 addEventListener('keydown', unlock);
 addEventListener('pointerdown', unlock);
 
+// Input ignores keys aimed at a focused button, so a clicked HUD button would
+// swallow every key (and Space would re-click it). Hand focus straight back.
+addEventListener('click', (event) => event.target.closest?.('button')?.blur());
+// A picker left focused would eat P1's keys ("a" selects Andy, arrows swap the
+// fighter). The toolbar passes game keys through (data-game-keys); stop the
+// control's own reaction and drop focus. Tab/Enter still navigate normally.
+addEventListener('keydown', (event) => {
+  const control = event.target.closest?.('[data-game-keys] select, [data-game-keys] button');
+  if (!control || ['Tab', 'Enter'].includes(event.code)) return;
+  event.preventDefault();
+  control.blur();
+}, true);
+
 let p1Pick = 'andy'; // P1's cousin — cycles with C or the picker.
 let cpuPick = null;  // explicit foe pick; null = auto (always a different cousin)
 let paused = false;
-let stage = new SmashStage({ input, width, height, sound, player: p1Pick });
+let cpuLevel = 'fight'; // 'fight' | 'dummy' (idle training dummy) — Y toggles
+let stage = new SmashStage({ input, width, height, sound, player: p1Pick, cpuLevel });
 const swapButton = document.querySelector('#swap');
 const p1Select = document.querySelector('#p1Pick');
 const foeSelect = document.querySelector('#foePick');
@@ -28,6 +42,16 @@ const modeButton = document.querySelector('#mode');
 const musicButton = document.querySelector('#music');
 const pauseButton = document.querySelector('#pause');
 const rainButton = document.querySelector('#rain');
+const cpuButton = document.querySelector('#cpuLevel');
+function cpuLabel() {
+  return `CPU · Y (${cpuLevel === 'fight' ? 'FIGHTS' : 'DUMMY'})`;
+}
+function toggleCpu() {
+  cpuLevel = cpuLevel === 'fight' ? 'dummy' : 'fight';
+  stage.setCpuLevel(cpuLevel);
+  cpuButton.textContent = cpuLabel();
+}
+cpuButton.onclick = toggleCpu;
 // World rain: the whole stage — city, slab, fighters — rendered through the
 // full-world pixel rain field (the Night Hunters technique).
 function rainLabel() {
@@ -46,6 +70,10 @@ function togglePause() {
   pauseButton.textContent = pauseLabel();
 }
 pauseButton.onclick = togglePause;
+// Like Night Hunters and the Root Archive: leaving the window pauses the fight
+// (Input already drops held keys on blur, so fighters would stand defenseless).
+addEventListener('blur', () => { if (!paused) togglePause(); });
+document.addEventListener('visibilitychange', () => { if (document.hidden && !paused) togglePause(); });
 function modeLabel() {
   return stage.mode === 'versus' ? 'Mode · T (VERSUS P1 vs P2)' : 'Mode · T (P1 vs CPU)';
 }
@@ -70,12 +98,13 @@ function syncPickers() {
   swapButton.textContent = `Swap fighter · C (${p1Pick.toUpperCase()})`;
   modeButton.textContent = modeLabel();
   rainButton.textContent = rainLabel();
+  cpuButton.textContent = cpuLabel();
 }
 async function buildStage(candidateP1, candidateFoe) {
   if (swapping) return;
   swapping = true;
   swapButton.textContent = 'Loading…';
-  const next = new SmashStage({ input, width, height, sound, player: candidateP1, foe: candidateFoe, mode: stage.mode });
+  const next = new SmashStage({ input, width, height, sound, player: candidateP1, foe: candidateFoe, mode: stage.mode, cpuLevel });
   try {
     await next.load();
     stage = next;
@@ -128,16 +157,23 @@ function resize() {
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   ctx.imageSmoothingEnabled = false;
   stage.resize(width, height);
+  stage.bottomInset = Math.max(0, height - dock.getBoundingClientRect().top);
 }
+const dock = document.querySelector('.dock');
 addEventListener('resize', resize);
+new ResizeObserver(() => { stage.bottomInset = Math.max(0, height - dock.getBoundingClientRect().top); }).observe(dock);
 resize();
 
 document.querySelector('#reset').onclick = () => {
-  for (const f of [stage.andy, stage.dummy]) {
+  // respawn() drops at center; a rematch starts from opposite sides like a new match.
+  for (const [f, side] of [[stage.andy, -1], [stage.dummy, 1]]) {
     f.stocks = 3;
     f.celebrating = false;
     f.respawn(stage);
+    f.x = stage.width * (0.5 + side * 0.2);
+    f.facing = -side;
   }
+  stage.cpu.reset();
   status.textContent = `Rematch! ${stage.andy.name} vs ${stage.dummy.name}`;
 };
 
@@ -148,7 +184,7 @@ const ACTIONS = [['left', 'Move left'], ['right', 'Move right'], ['jump', 'Jump'
   ['shield', 'Shield / crouch'], ['jab', 'Attack'], ['tilt', 'Tilt'],
   ['smash', 'Smash (hold)'], ['roll', 'Dodge']];
 const SYSTEM_CODES = ['Escape', 'KeyC', 'KeyT', 'KeyM', 'KeyN', 'KeyB', 'KeyH',
-  'KeyI', 'KeyO', 'KeyP', 'KeyR', 'KeyU'];
+  'KeyI', 'KeyO', 'KeyP', 'KeyR', 'KeyU', 'KeyY'];
 const PAD_STORE = 'smash-cousins-controls-v1';
 const DEFAULT_BINDINGS = {
   p1: JSON.parse(JSON.stringify(P1_BINDINGS)),
@@ -300,6 +336,27 @@ document.querySelector('#padReset').onclick = () => {
 loadBindings();
 buildPad();
 
+// Touch pad: each button holds P1's first bound key for its action, so a
+// remap in the Controls panel carries over. Multi-touch allows → + ATTACK tilts.
+for (const button of document.querySelectorAll('.touch-pad [data-act]')) {
+  let code = null;
+  const release = () => {
+    if (code) input.down.delete(code);
+    code = null;
+    button.classList.remove('on');
+  };
+  button.addEventListener('pointerdown', (event) => {
+    event.preventDefault(); // no focus, no synthetic click
+    try { button.setPointerCapture(event.pointerId); } catch { /* pointer already gone */ }
+    code = P1_BINDINGS[button.dataset.act]?.[0] ?? null;
+    if (!code) return;
+    if (!input.down.has(code)) input.pressed.add(code);
+    input.down.add(code);
+    button.classList.add('on');
+  });
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) button.addEventListener(type, release);
+}
+
 new GameLoop({
   update(delta) {
     if (input.consume('Escape')) { location.href = './games.html'; return; }
@@ -315,6 +372,7 @@ new GameLoop({
     }
     if (input.consume('KeyP')) togglePause();
     if (input.consume('KeyO')) togglePad();
+    if (input.consume('KeyY')) toggleCpu();
     if (!paused) {
       stage.update(delta, sound.update(delta));
       if (modeButton.textContent !== modeLabel()) modeButton.textContent = modeLabel();

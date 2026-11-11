@@ -9,9 +9,19 @@ export const MEMORIES = [
   { id: 'canopy', x: 549, y: 384, name: 'THE CANOPY', text: 'Above the path, the leaves hide a voice: "We planted these trees for someone we would never meet."' },
   { id: 'arch', x: 2192, y: 512, name: 'THE ROOTBOUND ARCH', text: 'Under the roots, a carving reads: "The forest did not bury us. It kept us."' },
   { id: 'watch', x: 2736, y: 320, name: 'THE OLD WATCH', text: 'A quiet perch above the machines: "If you have found this place, our story is not over."' },
-  { id: 'skyline', x: 1200, y: 224, name: 'SKYLINE VISTA', text: 'Above the neon streets, the city stretches to the horizon.' },
-  { id: 'datalair', x: 360, y: 128, name: 'DATA LAIR', text: 'Deep within the tower, ancient cores still pulse.' },
+  { id: 'skyline', x: 2720, y: 64, name: 'SKYLINE VISTA', text: 'Above the neon streets, the city stretches to the horizon.' },
+  { id: 'datalair', x: 360, y: 320, name: 'DATA LAIR', text: 'Deep within the tower, ancient cores still pulse.' },
 ];
+// [column, row, width] in tiles.
+export const WALKWAYS = [[5, 10, 30], [65, 6, 20], [80, 2, 15]];
+// [column, top row] of each climbable pillar.
+export const LADDERS = [[30, 2], [90, 2], [60, 8]];
+// Walkways and pillar tops catch falling feet but never block movement.
+export const ONE_WAY = [
+  ...WALKWAYS.map(([c, r, w]) => ({ x: c * TILE, y: r * TILE, w: w * TILE })),
+  ...LADDERS.map(([c, r]) => ({ x: c * TILE, y: r * TILE, w: TILE })),
+];
+const isWalkway = (r, c) => WALKWAYS.some(([x, y, w]) => r === y && c >= x && c < x + w);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 export const overlap = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
 
@@ -29,25 +39,14 @@ export function makeLevel() {
   fill(47, 10, 7, 1, 1);
   fill(73, 14, 4, 1, 1); fill(78, 12, 4, 1, 1);
   fill(83, 10, 7, 1, 1); fill(94, 13, 5, 1, 1);
-  // Elevated walkways at different heights for vertical exploration
-  // Elevated walkway at y=10 (higher up)
-  fill(5, 10, 30, 1, 1);
-  // Elevated walkway at y=6 (even higher)
-  fill(65, 6, 20, 1, 1);
-  // Elevated walkway at y=2 (rooftop level)
-  fill(80, 2, 15, 1, 1);
+  // Elevated walkways (one-way: jump up through them, land on them from above).
+  for (const [x, y, w] of WALKWAYS) fill(x, y, w, 1, 1);
   // One short water gap, with a safe upper crossing.
   for (let r = 16; r < ROWS; r++) for (let c = 59; c < 62; c++) tiles[r][c] = -1;
-  // Vertical exploration pillars: using tile 13 (distant arch) as climbable structures
-  // Left pillar at x=30, spans from ground to rooftop
-  for (let r = 2; r < ROWS; r++) tiles[r][30] = 13;
-  // Right pillar at x=90, spans from ground to rooftop
-  for (let r = 2; r < ROWS; r++) tiles[r][90] = 13;
-  // Central pillar at x=60, partial height
-  for (let r = 8; r < ROWS; r++) tiles[r][60] = 13;
-  // Neon pipe structures (vertical) at x=35 and x=75
-  for (let r = 4; r < ROWS; r += 4) tiles[r][35] = 13;
-  for (let r = 4; r < ROWS; r += 4) tiles[r][75] = 13;
+  // Climbable pillars (tile 13) stop above the ground so they never punch holes in it.
+  for (const [c, top] of LADDERS) for (let r = top; r < 16; r++) tiles[r][c] = 13;
+  // Neon pipes: decorative, passable.
+  for (let r = 4; r < 16; r += 4) { tiles[r][35] = 13; tiles[r][75] = 13; }
   return tiles;
 }
 
@@ -63,12 +62,15 @@ export class LostWorld {
   }
   get powered() { return this.relays.filter(r => r.on).length; }
   body(x = this.player.x, y = this.player.y, crouch = this.player.crouch) { return { x: x - 11, y: y - (crouch ? 29 : 56), w: 22, h: crouch ? 29 : 56 }; }
-  isLadderTile(tile) { return tile === 13; }
+  ladderAt(x, y) {
+    const c = Math.floor(x / TILE), r = Math.floor(y / TILE);
+    return LADDERS.some(([lc, top]) => lc === c && r >= top && r < 16);
+  }
   solids(box) {
     const result = [];
     const left = clamp(Math.floor(box.x / TILE), 0, COLS - 1), right = clamp(Math.floor((box.x + box.w) / TILE), 0, COLS - 1);
     const top = clamp(Math.floor(box.y / TILE), 0, ROWS - 1), bottom = clamp(Math.floor((box.y + box.h) / TILE), 0, ROWS - 1);
-    for (let r = top; r <= bottom; r++) for (let c = left; c <= right; c++) if (this.tiles[r][c] >= 0) result.push({ x: c * TILE, y: r * TILE, w: TILE, h: TILE });
+    for (let r = top; r <= bottom; r++) for (let c = left; c <= right; c++) if (this.tiles[r][c] >= 0 && this.tiles[r][c] !== 13 && !isWalkway(r, c)) result.push({ x: c * TILE, y: r * TILE, w: TILE, h: TILE });
     if (this.powered < 3) result.push({ x: 104 * TILE, y: 12 * TILE, w: TILE, h: 4 * TILE });
     return result;
   }
@@ -94,33 +96,28 @@ export class LostWorld {
     if (direction) p.facing = direction;
     p.vx = direction * (p.crouch ? 82 : 176);
     if (keys.whip && p.attack === 0) { p.attack = .42; p.struck = false; }
-    const tileR = Math.floor(p.y / TILE), tileC = Math.floor(p.x / TILE);
-    const onLadder = this.isLadderTile(this.tiles[tileR] && this.tiles[tileR][tileC]) ? 1 : 0;
-    if (onLadder && p.ladderDir !== 0) {
+    // Pillars: hold up/jump on one to grab it; up/down climb, sideways steps off.
+    const onLadder = this.ladderAt(p.x, p.y - 1);
+    if (!onLadder || (direction && !keys.up && !keys.down)) p.onLadder = false;
+    else if (keys.up && !p.onLadder) p.onLadder = true;
+    if (p.onLadder) {
+      p.crouch = false; p.vy = 0; p.grounded = false; p.coyote = .1;
+      p.ladderDir = (keys.down ? 1 : 0) - (keys.up ? 1 : 0);
       p.y = clamp(p.y + p.ladderDir * 180 * dt, 12, HEIGHT - 12);
-    } else if (onLadder && keys.up) {
-      p.ladderDir = -1;
-      p.y = clamp(p.y - 180 * dt, 12, HEIGHT - 12);
-    } else if (onLadder && keys.down) {
-      p.ladderDir = 1;
-      p.y = clamp(p.y + 180 * dt, 12, HEIGHT - 12);
-    } else {
-      p.ladderDir = 0;
-    }
-    if (!onLadder) p.ladderDir = 0;
+    } else p.ladderDir = 0;
     // Substeps keep collision stable even during an occasional slow frame.
     const steps = Math.ceil(dt / (1 / 120)), step = dt / steps;
     for (let i = 0; i < steps; i++) {
       p.x = clamp(p.x + p.vx * step, 12, WIDTH - 12);
       for (const s of this.solids(this.body())) if (overlap(this.body(), s)) p.x = p.vx > 0 ? s.x - 11 : s.x + s.w + 11;
       const previousFeet = p.y;
-      p.vy = Math.min(680, p.vy + 1150 * step); p.y += p.vy * step; p.grounded = false;
+      if (!p.onLadder) { p.vy = Math.min(680, p.vy + 1150 * step); p.y += p.vy * step; p.grounded = false; }
       for (const s of this.solids(this.body())) if (overlap(this.body(), s)) {
-        if (p.vy >= 0) { p.y = s.y; p.grounded = true; } else p.y = s.y + s.h + this.body().h;
+        if (p.vy >= 0) { p.y = s.y; p.grounded = true; p.onLadder = false; } else p.y = s.y + s.h + this.body().h;
         p.vy = 0;
       }
       // Branches and logs catch falling feet while permitting jumps from below.
-      for (const s of WOODLAND_PLATFORMS) {
+      for (const s of p.onLadder ? [] : [...WOODLAND_PLATFORMS, ...ONE_WAY]) {
         if (p.vy >= 0 && previousFeet <= s.y && p.y >= s.y && p.x + 11 > s.x && p.x - 11 < s.x + s.w) {
           p.y = s.y; p.vy = 0; p.grounded = true;
         }

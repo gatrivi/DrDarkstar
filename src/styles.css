@@ -54,3 +54,22 @@ select { background: #07111d; color: #c5dbe6; border: 1px solid #29414d; font: i
 .pad-key.listening { border-color: #82ddd0; color: #82ddd0; }
 .pad-key.taken { border-color: #e0708a; color: #e0708a; }
 .pad-foot { margin-top: 12px; display: flex; justify-content: flex-end; gap: 8px; }
+/* Smash: toolbar + help stack in one bottom dock so wrapped rows never overlap. */
+.dock { position: absolute; left: 28px; right: 28px; bottom: 18px; display: flex; flex-direction: column; gap: 10px; pointer-events: none; }
+.dock .controls { pointer-events: auto; }
+.dock .controls, .dock .help { position: static; left: auto; right: auto; bottom: auto; }
+.dock .help { row-gap: 4px; }
+@media (max-width: 620px) { .dock { left: 16px; right: 16px; } }
+/* Smash touch pad: shown on touch screens, holds P1's bound keys. */
+.touch-pad { display: none; justify-content: space-between; gap: 10px; pointer-events: auto; }
+.touch-pad > div { display: flex; gap: 6px; }
+.touch-pad button { min-width: 52px; min-height: 52px; padding: 6px; touch-action: none; user-select: none; -webkit-user-select: none; }
+.touch-pad button.on { background: #1d3442; border-color: #82ddd0; }
+@media (pointer: coarse) {
+  .touch-pad { display: flex; } .dock .help { display: none; }
+  /* One swipeable toolbar row, so the slab stays visible above the pad. */
+  .dock { gap: 8px; bottom: 10px; }
+  .dock .controls { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; }
+  .dock .controls > * { flex: none; padding: 7px 9px; font-size: 10px; }
+}
+@media (pointer: coarse) and (max-width: 520px) { .touch-pad button { min-width: 40px; font-size: 9px; } .touch-pad > div { gap: 4px; } }

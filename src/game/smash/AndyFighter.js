@@ -36,6 +36,8 @@ const POSES = ENGINE_POSES;
 export const ANDY_POSES = POSES;
 const FRAME_INDEX = Object.fromEntries(POSES.map((name, i) => [name, i]));
 const PW = 24, PH = 32;
+// Grounded jump wind-up (~3 frames at 60fps): the up-attack input window.
+export const JUMP_SQUAT = 0.05;
 
 const PALETTES = {
   andy: {
@@ -300,6 +302,7 @@ export class AndyFighter extends AnimatedSprite {
     this.vx = 0; this.vy = 0;
     this.onGround = false;
     this.jumpsLeft = 2;
+    this.jumpSquat = 0; // grounded jump wind-up; an attack inside it becomes an up-attack
     this.facing = 1;
     this.hitstun = 0;
     this.action = null;      // { name, time, duration, hitDone, ... }
@@ -384,7 +387,8 @@ export class AndyFighter extends AnimatedSprite {
     const w = move.reach, h = this.renderHeight * (move.heightRatio ?? 0.5);
     const kind = move.box || 'forward';
     if (kind === 'up') {
-      const bw = this.renderWidth * 0.7;
+      // Wide enough to catch a foe standing right beside you, not just overhead.
+      const bw = this.renderWidth * 1.3;
       return [{
         x: this.x - bw / 2, y: this.y - this.renderHeight * 0.5 - h * 0.45,
         w: bw, h: h * 1.1,
@@ -581,14 +585,18 @@ export class AndyFighter extends AnimatedSprite {
     for (const code of B.jump) {
       if (input.consume(code) && !this.action && this.dropLag <= 0) { jumped = true; break; }
     }
+    // Melee jump-squat: W is both jump and "up", so a grounded jump waits a
+    // few frames; an attack pressed inside that window cancels it into
+    // up-tilt / up-smash instead of leaving the ground.
+    const attackNow = jabPeek || tiltPeek || B.smash.some((c) => input.pressed?.has(c));
+    if (this.jumpSquat > 0) {
+      if (attackNow || !this.onGround || this.action) this.jumpSquat = 0;
+      else if ((this.jumpSquat -= delta) <= 0) { this.jumpSquat = 0; this.doJump(stage); }
+    }
     if (jumped) {
-      if (this.onGround || this.jumpsLeft > 0) {
-        const grounded = this.onGround;
-        stage.sfx?.play(grounded ? 'jump' : 'doubleJump');
-        this.vy = grounded ? -760 : -680;
-        this.jumpsLeft = this.onGround ? 1 : this.jumpsLeft - 1;
-        this.onGround = false;
-      }
+      if (this.onGround && this.modernKit) {
+        if (!attackNow && this.jumpSquat <= 0) this.jumpSquat = JUMP_SQUAT;
+      } else if (this.onGround || this.jumpsLeft > 0) this.doJump(stage);
     }
 
     // Fast-fall in air.
@@ -707,6 +715,14 @@ export class AndyFighter extends AnimatedSprite {
     }
   }
 
+  doJump(stage) {
+    const grounded = this.onGround;
+    stage.sfx?.play(grounded ? 'jump' : 'doubleJump');
+    this.vy = grounded ? -760 : -680;
+    this.jumpsLeft = grounded ? 1 : this.jumpsLeft - 1;
+    this.onGround = false;
+  }
+
   // Night Hunters heavy kit: J press starts windup, J release swings the
   // stored heavy move. Fighters with no heavy move never enter heavyOn.
   releaseHeavy(input, stage) {
@@ -745,7 +761,10 @@ export class AndyFighter extends AnimatedSprite {
     const fallSpeed = this.vy;
     this.onGround = false;
     const footY = this.y + this.renderHeight / 2;
-    if (footY >= ground.y && this.vy >= 0 && this.x >= ground.x0 && this.x <= ground.x1) {
+    // Only land when the feet crossed the surface this frame: a fighter below
+    // the slab drifting back under it must keep falling, not teleport on top.
+    const prevFootY = footY - this.vy * delta;
+    if (footY >= ground.y && prevFootY <= ground.y + 2 && this.vy >= 0 && this.x >= ground.x0 && this.x <= ground.x1) {
       this.y = ground.y - this.renderHeight / 2;
       this.vy = 0; this.onGround = true; this.jumpsLeft = 2;
       if (fallSpeed > 500) stage.sfx?.play('land');
@@ -851,6 +870,7 @@ export class AndyFighter extends AnimatedSprite {
     this.shieldstun = 0;
     this.shieldBreakStun = 0;
     this.dropLag = 0;
+    this.jumpSquat = 0;
     this.invuln = 1.2; // spawn protection: drops in blinking, can't be spawn-camped
     this.respawnTimer = 1;
   }
@@ -860,6 +880,7 @@ export class AndyFighter extends AnimatedSprite {
     else if (this.hitstun <= 0 && this.shieldstun <= 0 && this.shieldBreakStun <= 0) this.controls(delta, stage);
     else {
       this.shielding = false;
+      this.jumpSquat = 0;
       // Control-locked while a windup is pending: the charge can't be held or
       // released, so drop it rather than freeze mid-stance (stuck-smash fix).
       if (this.action?.name === 'windup') {
