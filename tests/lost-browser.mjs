@@ -1,16 +1,14 @@
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
-const modulePath=process.env.PLAYWRIGHT_MODULE||'C:/Users/DevTrivi/AppData/Local/npm-cache/_npx/9833c18b2d85bc59/node_modules/playwright/index.mjs';
-const { chromium }=await import(pathToFileURL(modulePath).href);
-const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH||'C:/Users/DevTrivi/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe'});
+import { launchBrowser, BASE_URL } from './browser-env.mjs';
+const browser=await launchBrowser();
 const page=await browser.newPage({viewport:{width:1440,height:1100}});
 const errors=[],failures=[],checks=[];
 page.on('pageerror',e=>errors.push(e.message));page.on('response',r=>{if(r.status()>=400)failures.push(`${r.status()} ${r.url()}`);});
 const check=(condition,name)=>{assert.ok(condition,name);checks.push(name);};
 await mkdir('output/lost-area',{recursive:true});
 try {
-  await page.goto(`${process.env.BASE_URL||'http://127.0.0.1:8080'}/games.html`);
+  await page.goto(`${BASE_URL}/games.html`);
   await page.getByRole('link',{name:/004.*LOST EXPEDITION/}).click();
   await page.waitForFunction(()=>document.querySelector('#loading').hidden);
   await page.evaluate(async()=>{window.expedition=await import('/src/lost.js');window.scrollTo(0,0);});

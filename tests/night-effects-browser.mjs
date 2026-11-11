@@ -1,12 +1,11 @@
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
-import { pathToFileURL } from 'node:url';
-const { chromium } = await import(pathToFileURL(process.env.PLAYWRIGHT_MODULE || 'C:/Users/DevTrivi/AppData/Local/npm-cache/_npx/9833c18b2d85bc59/node_modules/playwright/index.mjs').href);
-const browser=await chromium.launch({headless:true,executablePath:process.env.CHROMIUM_PATH || 'C:/Users/DevTrivi/AppData/Local/ms-playwright/chromium-1228/chrome-win64/chrome.exe'});
+import { launchBrowser, BASE_URL } from './browser-env.mjs';
+const browser=await launchBrowser();
 const page=await browser.newPage({viewport:{width:1440,height:1000}});
 const errors=[];page.on('pageerror',e=>errors.push(e.message));
 try{
-  await page.goto('http://127.0.0.1:8080/night.html');
+  await page.goto(`${BASE_URL}/night.html`);
   await page.waitForFunction(()=>!document.querySelector('#start').disabled);
   await page.locator('#start').click();
   await page.evaluate(async()=>{window.nightEffects=await import('/src/night.js');window.nightEffects.loop.stop();});
