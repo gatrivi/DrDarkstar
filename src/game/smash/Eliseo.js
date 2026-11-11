@@ -22,6 +22,7 @@ const ELISEO_ENGINE_POSES = [
   'idle', 'walk1', 'walk2', 'dash', 'jump', 'roll', 'guard',
   'aa', 'ftilt', 'utilt', 'dtilt', 'charge', 'smash', 'usmash', 'dsmash', 'tilt',
 ];
+export const ELISEO_ENGINE_FRAME_INDEX = Object.fromEntries(ELISEO_ENGINE_POSES.map((name, i) => [name, i]));
 const ELISEO_POSE_CELL = {
   idle: 0, walk1: 1, walk2: 2, dash: 3, jump: 4, roll: 5, guard: 13,
   aa: 6, ftilt: 7, utilt: 8, dtilt: 7, charge: 8, smash: 9,
@@ -306,8 +307,11 @@ export class EliseoFighter extends AndyFighter {
         enginePoses: ELISEO_ENGINE_POSES,
         poseCell: ELISEO_POSE_CELL,
       }));
+      // The generated strip is laid out in engine order, not ELISEO_POSES order.
+      this.frameIndex = ELISEO_ENGINE_FRAME_INDEX;
     } catch {
       this.applySheet(buildEliseoSheet());
+      this.frameIndex = ELISEO_FRAME_INDEX;
     }
   }
 }

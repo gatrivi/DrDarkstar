@@ -78,6 +78,28 @@ try {
   await waitFor(() => window.smash.stage.dummy.percent > 5, null);
   check(true, 'hold-K smash charges and lands');
 
+  // Holding K past full charge fires once; another smash needs a fresh press.
+  await stageFighters(500);
+  await page.evaluate(() => {
+    const f = window.smash.stage.andy;
+    let count = 0, last = null;
+    const timer = setInterval(() => { const n = f.action?.name ?? null; if (n === 'windup' && last !== 'windup') count++; last = n; }, 16);
+    window.__stopWindups = () => { clearInterval(timer); return count; };
+  });
+  await hold('k', 3200);
+  await page.waitForTimeout(300);
+  check(await page.evaluate(() => window.__stopWindups()) === 1, 'held K auto-fires one smash, not a loop');
+
+  // Eliseo's generated sheet: each pose name maps to its own strip slot.
+  check(await page.evaluate(async () => {
+    const { EliseoFighter, ELISEO_ENGINE_FRAME_INDEX } = await import('/src/game/smash/Eliseo.js');
+    const { P1_BINDINGS } = await import('/src/game/smash/AndyFighter.js');
+    const f = new EliseoFighter({ input: null, width: 800, height: 600, bindings: P1_BINDINGS, spawnX: 100 });
+    await f.load();
+    return f.frames === 16 && ['charge', 'smash', 'usmash', 'dsmash', 'tilt']
+      .every((pose) => f.frameIndex[pose] === ELISEO_ENGINE_FRAME_INDEX[pose]);
+  }), 'Eliseo frame index matches the generated strip order');
+
   // Clicking a toolbar button must not steal game keys (HANDOFF regression).
   await stageFighters(400);
   await page.locator('#rain').click();

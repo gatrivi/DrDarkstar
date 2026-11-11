@@ -200,7 +200,10 @@ function padBindings(player) {
 }
 function syncAlias(player) {
   const b = padBindings(player);
-  b.up = [...b.jump];
+  // Space jumps but isn't "up" (Space+J is a jab, not an up-tilt), matching the
+  // shipped defaults; it only counts as up if it's the sole jump key.
+  const up = b.jump.filter((code) => code !== 'Space');
+  b.up = up.length ? up : [...b.jump];
   b.down = [...b.shield];
 }
 function keyLabel(code) {

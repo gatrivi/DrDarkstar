@@ -669,7 +669,9 @@ export class AndyFighter extends AnimatedSprite {
     // here instead and releases through releaseHeavy.
     const smashHeld = B.smash.length > 0 && input.isDown(...B.smash);
     const heavyCharge = this.heavyOn && B.jab.some((c) => input.isDown(c));
-    if (smashHeld && !this.action && this.onGround && this.dropLag <= 0) {
+    // After a full-charge auto-fire, the next smash needs a fresh press.
+    if (!smashHeld) this.smashLatch = false;
+    if (smashHeld && !this.smashLatch && !this.action && this.onGround && this.dropLag <= 0) {
       this.startMove('windup');
       this.action.smashKind = this.smashVariant(input, B);
       const pose = this.moveTable[this.action.smashKind]?.pose;
@@ -893,6 +895,7 @@ export class AndyFighter extends AnimatedSprite {
     // so the stance can never wedge no matter what the input path does.
     if (this.action?.name === 'windup' && this.action.charge >= MAX_CHARGE) {
       this.fireSmash(stage);
+      this.smashLatch = true; // cleared once the smash key is let go
     }
     this.physics(delta, stage);
     this.advance(delta);

@@ -29,6 +29,8 @@ const entries = [
   'assets/andy/andy-spritesheet-v1.png',
   'assets/eliseo/eliseo-spritesheet-v1.png',
   'assets/simon/simon-spritesheet-v1.png',
+  'assets/smash/city-green.jpeg',
+  'assets/smash/city-red.jpeg',
 ];
 for (const entry of entries) {
   const destination = path.join(output, entry);

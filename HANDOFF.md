@@ -2,7 +2,7 @@
 
 ## Added 2026-11-11: test tooling (branch `smash-cousins-demo`)
 
-`npm run test:browser` / `test:all` run every browser harness with no setup (shared launcher `tests/browser-env.mjs`, `playwright-core` devDependency, installed Edge/Chrome). New `tests/smash-browser.mjs` (29 checks). `AGENTS.md` now carries the file map, commands and rules. The sections below the dated log were refreshed to match the code.
+Fixed from code review: Eliseo's generated sheet showed wrong art for smash/tilt/charge poses (frame index now follows the strip order); holding K re-fired full-charge smashes forever (now needs a fresh press); Space counted as "up" after any remap or controls reset; photo backdrops were missing from `dist/`. `npm run test:browser` / `test:all` run every browser harness with no setup (shared launcher `tests/browser-env.mjs`, `playwright-core` devDependency, installed Edge/Chrome). New `tests/smash-browser.mjs` (31 checks). `AGENTS.md` now carries the file map, commands and rules. The sections below the dated log were refreshed to match the code.
 
 ## Added 2026-10-20 — bug-fix pass (branch `smash-cousins-demo`)
 
@@ -72,7 +72,7 @@ The in-page footer in `smash.html` is the source of truth. P1: A/D move · W jum
 
 ## Verification last completed (2026-11-11)
 
-- `npm run test:all`: 67 unit tests pass; 5/5 browser harnesses pass (cape, lost, night, night-effects, smash). Smash harness: 29 keyboard-driven checks, see `output/smash-cousins/verification.json`.
+- `npm run test:all`: 67 unit tests pass; 5/5 browser harnesses pass (cape, lost, night, night-effects, smash). Smash harness: 31 keyboard-driven checks, see `output/smash-cousins/verification.json`.
 - Every page (`games`, `smash`, `rain`, `night`, `lost`, `sprites`) loads with zero console errors. `cape-keyframes.html` logs one 404 (dev page, unlinked).
 
 ## Known limitations / sensible next work
@@ -81,6 +81,13 @@ The in-page footer in `smash.html` is the source of truth. P1: A/D move · W jum
 2. Recovery after falling off the slab is hard (double-jump only); consider a softer bottom blast zone if it frustrates casual players.
 3. Rain Studies: Rain Lab settings not persisted; fade slider step quirk.
 4. Untracked debug probes (`output/relic-*.mjs`, probe PNGs, `debug-forge.html`) are left from the Root Archive work; keep or delete by the owner's call.
+5. **Open code-review findings (2026-11-11, not yet fixed):**
+   - Simon's fallback sheet (`buildSpriteSheet(PALETTES.simon)` in `Simon.js`, used only if his PNG fails) is laid out in Andy's pose order while `frameIndex` stays `SIMON_FRAME_INDEX`: poses scramble offline. Needs a Simon-ordered fallback or a name mapping.
+   - World rain OFF (N): `drawWorld` paints the opaque backdrop over the classic night fill and ambient rain that `render()` drew first. Decide the intended look (flat sky as the comment says, or photo backdrop with ambient rain on top), then fix.
+   - `NightFighter.update` overrides `AndyFighter.update` without its windup-drop-under-hitstun guard: a hunter hit mid J-heavy windup can keep `heavyOn` set, so J does nothing until released and pressed again.
+   - `SmashStage.resize` rebuilds the 12k-drop `WorldRain` on every resize event (GC stalls and a flickering field while dragging the window). Debounce or resize in place.
+   - `SmashStage.load` awaits both photo backdrops, and every fighter swap builds a new stage, so the photos are fetched and processed again on each swap. Their order also depends on which download finishes first. Cache at module level.
+   - Root Archive (`src/game/lost/World.js` ~l.100): ladders reach the ground and "up" is the jump key, so jumping while standing in a ladder column grabs the pillar instead of jumping.
 
 ## References and assets
 

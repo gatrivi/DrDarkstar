@@ -1,5 +1,5 @@
 {
-  "checks": 16,
+  "checks": 31,
   "passed": [
     "match boots P1 vs CPU with 3 stocks each",
     "foe never mirrors P1",
@@ -10,16 +10,29 @@
     "P1 lands back on the slab",
     "J jab damages an adjacent foe",
     "hold-K smash charges and lands",
+    "held K auto-fires one smash, not a loop",
+    "Eliseo frame index matches the generated strip order",
     "keys still drive P1 after clicking a toolbar button",
     "world rain toggles off and back on",
     "leaving the blast zone costs a stock",
     "last stock lost announces the winner",
     "eliminated fighter stays out until Reset",
     "Reset match restores 3 stocks each",
-    "Reset match puts fighters on opposite sides"
+    "Reset match puts fighters on opposite sides",
+    "Reset match faces fighters toward each other",
+    "T switches to versus (P2 label)",
+    "ArrowLeft drives P2 in versus",
+    "T switches back to P1 vs CPU",
+    "Controls panel opens",
+    "remap shows the new key",
+    "remap persists in localStorage",
+    "remapped key drives P1",
+    "Reset defaults clears the remap",
+    "P pauses the match",
+    "phone landscape has no horizontal overflow",
+    "no browser errors",
+    "no failed resources"
   ],
-  "errors": [
-    "harness: Reset match faces fighters toward each other"
-  ],
+  "errors": [],
   "failedResources": []
 }
